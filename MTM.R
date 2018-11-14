@@ -7,15 +7,12 @@ rhos = runif(p-1,-rho,rho)
 # Use following line for my set of rhos
 # rhos = read.csv(sprintf("cors_%d_1.csv",p),header=FALSE)[,1]*rho
 #############
-halfnumtry = 3
-stepsize = 0.4
+halfnumtry = 3 # this is the number m in Section 3.2.2
+stepsize = 0.4 # this is the number s in Section 3.2.2
 
-
-q.prop.pdf.log = function(j, xj, tildexj){
-  return(log(exp(-(xj-tildexj)^2/(2*var.sigma2))/sqrt(2*pi*var.sigma2)))
-}
 
 p.marginal.trans.log = function(j, xj, xjm1){
+  # this is the log of the transition density from Xj-1 to Xj; if j=1, it's just the marginal log density of X1
   if(j>p)
     return("error!")
   if(j==1)
@@ -24,8 +21,9 @@ p.marginal.trans.log = function(j, xj, xjm1){
 }
 
 p.marginal.log = function(x){
+  # this is the marginal density of the entire random vector, calculated sequentially using the previous function p.marginal.trans.log
   p.dim = length(x)
-  res = -x[1]^2/2-0.5*log(2*pi)
+  res = p.marginal.trans.log(1, x[1], 0)
   if(p.dim==1)
     return(res)
   for(j in 2:length(x)){
@@ -34,22 +32,23 @@ p.marginal.log = function(x){
   return(res)
 }
 
-p.joint.log = function(x, tildex, w)
-  return(c(FALSE,p.marginal.log(x)))
 
 
 
 
 SCEP.MH.MC = function(x.obs, alpha, x.grid){
-  p = length(x.obs)
-  midtry = floor(dim(x.grid)[2]/2)+1
-  gridwithoutzero = x.grid[,-midtry]
-  x.grid = x.grid[,-midtry]
-  indices = rep(0,p)
-  indicators = indices
-  tildexs = c()
-  ws = matrix(0,ncol=p,nrow=2*midtry-2)
-  refws = ws
+  # this is the main function that samples knockoffs
+  # x.obs is the real covariates
+  # alpha is as in Section 3.2.2
+  # x.grid is the grid we want to use for MTM sampling; it always contains the relative 2m candidates and 0
+  p = length(x.obs) # p is the length of x.obs and number of covariates
+  midtry = floor(dim(x.grid)[2]/2)+1 # this is the index of the center of x.grid, i.e., the position of the value 0
+  x.grid = x.grid[,-midtry] # this is to remove the value 0, as it is not one of the candidates
+  indices = rep(0,p) # this vector to record with candidate is selected for each j from 1 to p; initialized as a 0 vector
+  indicators = indices # this vector to record acceptance or rejection for each j from 1 to p; initialized as a 0 vector
+  tildexs = c() # this vector to record the knockoffs, the final output of the algorithm
+  ws = matrix(0,ncol=p,nrow=2*midtry-2) # this is all the candidate proposals, with total number p*(2m), stored in px2m matrix, intialized to be a 0 matrix
+  refws = ws # this is the reference proposals, used to ensure reversibility
   marg.density.log = p.marginal.log(x.obs)
   parallel.marg.density.log = matrix(0,ncol=p,nrow=2*midtry-2)
   refs.parallel.marg.density.log = parallel.marg.density.log
