@@ -238,7 +238,7 @@ sds[p] = sqrt(1-rhos[p-1]^2)
 for(i in 1:p){
   quantile.x[i,] = ((-halfnumtry):halfnumtry)*sds[i]*stepsize
 }
-
+# quantile.x is the candidate set plus the current state, with step size in the unit of 1/\sqrt((\Sigma)^{-1}_{jj})
 
 bigmatrixresult = foreach(i=1:numsamples,.combine='rbind') %dopar% {
   bigmatrix[i,1] = rt(1, df.t)*sqrt((df.t-2)/df.t)
@@ -247,4 +247,4 @@ bigmatrixresult = foreach(i=1:numsamples,.combine='rbind') %dopar% {
   bigmatrix[i,(p+1):(2*p)] = SCEP.MH.MC(bigmatrix[i,1:p],0.999,quantile.x)
   bigmatrix[i,]
 }
-bigmatrix = bigmatrixresult
+# bigmatrixresult is an nx2p matrix, each row being an indpendent sample of (X, \tilde X).
