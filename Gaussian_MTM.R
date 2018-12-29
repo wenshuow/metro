@@ -251,4 +251,4 @@ bigmatrixresult = foreach(i=1:numsamples,.combine='rbind') %dopar% {
   bigmatrix[i,(p+1):(2*p)] = SCEP.MH.MC(bigmatrix[i,1:p],0.999,quantile.x)
   bigmatrix[i,]
 }
-bigmatrix = bigmatrixresult
+bigmatrix = bigmatrixresult # bigmatrix is an nx2p matrix, each row being an indpendent sample of (X, \tilde X).
