@@ -1,2 +1,2 @@
-# scepknockoff
-Knockoff sampling with SCEP
+# Knockoff generation with MH-SCEP
+Knockoff sampling with MH-SCEP
