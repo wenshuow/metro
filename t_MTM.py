@@ -3,8 +3,8 @@ import numpy as np
 from scipy.stats import t
 
 df_t = 5 # degree of freedom of t-distribution
-p = 3 # dimension of the random vector X
-numsamples = 10000 # number of samples to generate knockoffs for
+p = 500 # dimension of the random vector X
+numsamples = 10 # number of samples to generate knockoffs for
 rhos = [0.6]*(p-1) # the correlations
 halfnumtry = 1 # m/half number of candidates
 stepsize = 1.5 # step size in the unit of 1/\sqrt((\Sigma)^{-1}_{jj})
