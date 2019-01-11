@@ -16,7 +16,7 @@ p.marginal.trans.log = function(j, xj, xjm1){
     if(xj*sqrt(variance)+asymean>=0){
       return(dnorm(xj*sqrt(variance)+asymean,sd=1,log=TRUE)+0.5*log(variance)+log(2))
     } else{
-      return(dexp(-(xj*sqrt(variance)+asymean),log=TRUE))+0.5*log(variance)
+      return(dexp(-(xj*sqrt(variance)+asymean),log=TRUE)+0.5*log(variance))
     }
   }
   if((xj-rhos[j-1]*xjm1)*sqrt(variance)/sqrt(1-rhos[j-1]^2)+asymean>=0){
@@ -39,12 +39,12 @@ p.marginal.log = function(x){
 
 
 
-SCEP.MH.MC = function(x.obs, alpha, mu.vector, cond.means.coeff, cond.vars){
+SCEP.MH.MC = function(x.obs, alpha, mu.vector, cond.coeff, cond.means.coeff, cond.vars){
   p = length(mu.vector)
   rej = 0
   tildexs = c()
-  cond.mean = mu.vector + (temp.mat %*% matrix(x.obs-mu.vector,ncol=1))[,1]
-  cond.cov = Cov.matrix - temp.mat %*% Cov.matrix.off
+  cond.mean = mu.vector + (cond.coeff %*% matrix(x.obs-mu.vector,ncol=1))[,1]
+  cond.cov = Cov.matrix - cond.coeff %*% Cov.matrix.off
   ws = mvrnorm(1,cond.mean,cond.cov)
   q.prop.pdf.log = function(num.j, vec.j, prop.j){
     if(num.j!=(length(vec.j)-p+1))
@@ -146,6 +146,7 @@ if(p>=3){
   }
 }
 temp.mat = Cov.matrix.off %*% inverse.all[1:p,1:p]
+prop.mat = temp.mat
 upper.matrix = cbind(Cov.matrix, Cov.matrix.off)
 lower.matrix = cbind(Cov.matrix.off, Cov.matrix)
 whole.matrix = rbind(upper.matrix, lower.matrix)
@@ -187,7 +188,7 @@ bigmatrixresult = foreach(i=1:numsamples,.combine='rbind',.packages = 'MASS') %d
       bigmatrix[i,j] = ((-rexp(1)-asymean)/sqrt(variance))*sqrt(1-rhos[j-1]^2) + rhos[j-1]*bigmatrix[i,j-1]
     }
   }
-  knockoff.scep = SCEP.MH.MC(bigmatrix[i,1:p],1,rep(0,p),cond.means.coeff, cond.vars)
+  knockoff.scep = SCEP.MH.MC(bigmatrix[i,1:p],1,rep(0,p),prop.mat,cond.means.coeff, cond.vars)
   bigmatrix[i,(p+1):(2*p)] = knockoff.scep[1:p]
   # knockoff.scep[p+1] is the number of total rejections
   bigmatrix[i,]

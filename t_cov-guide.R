@@ -4,7 +4,7 @@ library(doParallel)
 registerDoParallel(makeCluster(8)) # number of cores for parallelization
 
 df.t = 5 # degree of freedom of t-distribution
-p = 500 # dimension of the random vector X
+p = 4 # dimension of the random vector X
 numsamples = 10 # number of samples to generate knockoffs for
 rhos = rep(0.6,p-1) # the correlations
 
@@ -32,12 +32,13 @@ p.marginal.log = function(x){
 p.joint.log = function(x, tildex, w)
   return(c(FALSE,p.marginal.log(x)))
 
-SCEP.MH.MC = function(x.obs, alpha, mu.vector, cond.means.coeff, cond.vars){
+SCEP.MH.MC = function(x.obs, alpha, mu.vector, cond.coeff, cond.means.coeff, cond.vars){
+  print(temp.mat)
   p = length(mu.vector)
   rej = 0
   tildexs = c()
-  cond.mean = mu.vector + (temp.mat %*% matrix(x.obs-mu.vector,ncol=1))[,1]
-  cond.cov = Cov.matrix - temp.mat %*% Cov.matrix.off
+  cond.mean = mu.vector + (cond.coeff %*% matrix(x.obs-mu.vector,ncol=1))[,1]
+  cond.cov = Cov.matrix - cond.coeff %*% Cov.matrix.off
   ws = mvrnorm(1,cond.mean,cond.cov)
   q.prop.pdf.log = function(num.j, vec.j, prop.j){
     if(num.j!=(length(vec.j)-p+1))
@@ -140,6 +141,7 @@ if(p>=3){
   }
 }
 temp.mat = Cov.matrix.off %*% inverse.all[1:p,1:p]
+prop.mat = temp.mat
 upper.matrix = cbind(Cov.matrix, Cov.matrix.off)
 lower.matrix = cbind(Cov.matrix.off, Cov.matrix)
 whole.matrix = rbind(upper.matrix, lower.matrix)
@@ -172,7 +174,7 @@ bigmatrixresult = foreach(i=1:numsamples,.combine='rbind',.packages = 'MASS') %d
   bigmatrix[i,1] = rt(1, df.t)*sqrt((df.t-2)/df.t)
   for(j in 2:p)
     bigmatrix[i,j] = rt(1, df.t)*sqrt((df.t-2)/df.t)*sqrt(1-rhos[j-1]^2) + rhos[j-1]*bigmatrix[i,j-1]
-  knockoff.scep = SCEP.MH.MC(bigmatrix[i,1:p],1,rep(0,p),cond.means.coeff, cond.vars)
+  knockoff.scep = SCEP.MH.MC(bigmatrix[i,1:p],1,rep(0,p),prop.mat,cond.means.coeff, cond.vars)
   bigmatrix[i,(p+1):(2*p)] = knockoff.scep[1:p]
   # knockoff.scep[p+1] is the number of total rejections
   bigmatrix[i,]
