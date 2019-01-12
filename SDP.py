@@ -4,7 +4,7 @@
 import numpy as np
 from pydsdp.dsdp5 import dsdp
 
-# creating correlation matrix
+# creating the correlation matrix of a Markov chain
 # replace it with your own correlation matrix if needed
 p = 10
 rhos = [0.6] * (p-1)
