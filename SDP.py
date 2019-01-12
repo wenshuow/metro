@@ -1,5 +1,6 @@
 # This is a script for solving the SDP in second-order knockoff construction
 # and it could be used for covariance-guided prposals in MH-SCEP.
+# The R function can be found in the "knockoff" package.
 import numpy as np
 from pydsdp.dsdp5 import dsdp
 
