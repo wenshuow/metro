@@ -33,7 +33,6 @@ p.joint.log = function(x, tildex, w)
   return(c(FALSE,p.marginal.log(x)))
 
 SCEP.MH.MC = function(x.obs, alpha, mu.vector, cond.coeff, cond.means.coeff, cond.vars){
-  print(temp.mat)
   p = length(mu.vector)
   rej = 0
   tildexs = c()
