@@ -5,4 +5,4 @@ Correspondence should be addressed to Stephen Bates (stephen6@stanford.edu) and 
 
 #### Reference
 
-Stephen Bates, Emmanuel Candès, Lucas Janson and Wenshuo Wang. (2019). *Generating Exact Knockoffs for Graphical Models via MCMC*
+Stephen Bates, Emmanuel Candès, Lucas Janson and Wenshuo Wang. (2019). *Generating Exact Knockoffs for Graphical Models via MCMC*.
