@@ -1,4 +1,4 @@
-# Exact Knockoff sampling with MH-SCEP
+# Exact Knockoff Sampling with MH-SCEP
 
 #### Description
 
