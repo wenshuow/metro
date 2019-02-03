@@ -125,14 +125,18 @@ def SCEP_MH_Gibbs(x_obs, gamma, half_num_try, step_size):
                     for k in range(k2):
                         if decendent[k] + x_obs[i+1,k]<0 or decendent[k] + x_obs[i+1,k]>=K:
                             inf_flag = True
+                            break
                 else:
                     if i<k1-1:
                         for k in range(j+1):
                             if decendent[k] + x_obs[i+1,k]<0 or decendent[k] + x_obs[i+1,k]>=K:
                                 inf_flag = True
-                    for k in range(j+1,k2):
-                        if decendent[k] + x_obs[i,k]<0 or decendent[k] + x_obs[i,k]>=K:
-                            inf_flag = True
+                                break
+                    if inf_flag==False:
+                        for k in range(j+1,k2):
+                            if decendent[k] + x_obs[i,k]<0 or decendent[k] + x_obs[i,k]>=K:
+                                inf_flag = True
+                                break
                 if inf_flag:
                     # if any X is outside of the support, record a -inf log density and move on
                     if j<k2-1:
