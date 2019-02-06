@@ -1,5 +1,6 @@
 import math
 import numpy as np
+import multiprocessing as mp
 
 
 def log(x):
@@ -234,6 +235,8 @@ def SCEP_MH_Gibbs_slice(k1, k2, K, beta, x_obs, gamma, half_num_try, step_size, 
 
     # loop across components
     slices = get_slices(k2, max_width)
+    if base_prob_log is None:
+        base_prob_log = np.zeros([k1, k2, K])
     for i in range(len(slices) + 1):
         if i == 0:
             start = 0
@@ -248,8 +251,7 @@ def SCEP_MH_Gibbs_slice(k1, k2, K, beta, x_obs, gamma, half_num_try, step_size, 
 
 
         # incorporate new boundary terms
-        if base_prob_log is None:
-            base_prob_log = np.zeros([k1, k2, K])
+
         base_prob_temp = base_prob_log[:, start:end, :]
         if start != 0:
             for j in range(k1):
@@ -265,6 +267,27 @@ def SCEP_MH_Gibbs_slice(k1, k2, K, beta, x_obs, gamma, half_num_try, step_size, 
             step_size, base_prob_temp)
 
     return(xk)
+
+def sim_one_slice(k1, k2, K, beta, gamma, half_num_try, step_size, N_gibbs, max_width):
+    x_obs = Gibbs_sampler(k1, k2, K, beta, N = N_gibbs)
+    xk = SCEP_MH_Gibbs_slice(k1 = k1, k2 = k2, K = K, beta = beta, x_obs = x_obs, 
+        gamma = gamma, half_num_try = half_num_try, step_size = step_size, max_width = max_width)
+    return(np.append(np.reshape(x_obs, k1*k2), np.reshape(xk, k1*k2)))
+
+def sim_slice(k1, k2, K, beta, gamma, half_num_try, step_size, 
+    base_prob_log = None, max_width = 5, n_sim = 1, cores = None, N_gibbs = 100):
+
+    if cores is not None:
+        pool = mp.Pool(processes = cores)
+        results = [pool.apply(sim_one_slice, args = (k1, k2, K, beta, gamma, half_num_try, step_size, N_gibbs, max_width)) for i in range(n_sim)]
+    else:
+        results = [sim_one_slice(k1, k2, K, beta, gamma, half_num_try, step_size, N_gibbs, max_width) for i in range(n_sim)]
+
+
+    return(results)
+
+
+
 
 
 # checking correlation matrix and covariance matrix
