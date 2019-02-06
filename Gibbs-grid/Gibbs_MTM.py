@@ -63,14 +63,14 @@ def p_marginal_change_log(x_ori, i, j, new, beta, k1, k2, K, base_prob_log = Non
     if j<k2-1:
         res = res - beta*(x_ori[i,j]+new-x_ori[i,j+1])**2 + beta*(x_ori[i,j]-x_ori[i,j+1])**2
     if base_prob_log is not None:
-        res = base_prob_log[i, j, x_ori[i,j]+new] - base_prob_log[i, j, x_ori[i,j]]
+        res = res + base_prob_log[i, j, int(x_ori[i,j]+new)] - base_prob_log[i, j, int(x_ori[i,j])]
     return(res)
 
 def SCEP_MH_Gibbs(k1, k2, K, beta, x_obs, gamma, half_num_try, step_size, base_prob_log = None):
     # half_num_try is the m in the paper
     # step_size is t
     # assumes k1 >= k2
-    [k1, k2] = x_obs.shape
+    #[k1, k2] = x_obs.shape
     num_try = 2*half_num_try
     grid = [x*step_size for x in list(range(-half_num_try,half_num_try+1))]
     grid = np.delete(grid,half_num_try) # [-mt, -(m-1)t, ..., -t, t, ..., (m-1)t, mt]
@@ -152,7 +152,7 @@ def SCEP_MH_Gibbs(k1, k2, K, beta, x_obs, gamma, half_num_try, step_size, base_p
                     prev_decendent[j] = grid[w]
                     # account for marginal density change; needs modification for slicing
                     if base_prob_log is not None:
-                        probs[w] = probs[w] + base_prob_log[i,j,grid[w]+x_obs[i,j]] - base_prob_log[i,j,x_obs[i,j]]
+                        probs[w] = probs[w] + base_prob_log[i,j, int(grid[w]+x_obs[i,j])] - base_prob_log[i,j, int(x_obs[i,j])]
                     if i>0:
                         probs[w] = probs[w]-beta*(grid[w]+x_obs[i,j]-x_obs[i-1,j])**2 + beta*(x_obs[i,j]-x_obs[i-1,j])**2
                     if j>0:
@@ -177,7 +177,7 @@ def SCEP_MH_Gibbs(k1, k2, K, beta, x_obs, gamma, half_num_try, step_size, base_p
                     ref_decendent[j] = grid[w] + proposal
                     # account for marginal density change; needs modification for slicing
                     if base_prob_log is not None:
-                        refprobs[w] =  refprobs[w] + base_prob_log[i, j, proposal + x_obs[i,j]] - base_prob_log[i,j, x_obs[i,j]]
+                        refprobs[w] =  refprobs[w] + base_prob_log[i, j, int(proposal + x_obs[i,j])] - base_prob_log[i,j, int(x_obs[i,j])]
                     if i>0:
                         refprobs[w] = refprobs[w]-beta*(grid[w]+proposal+x_obs[i,j]-x_obs[i-1,j])**2 + beta*(x_obs[i,j]-x_obs[i-1,j])**2
                     if j>0:
@@ -223,6 +223,49 @@ def sim(k1, k2, K, beta, numsamples, m, t, N_gibbs):
         bigmatrix[i,(k1*k2):(2*k1*k2)] = np.reshape(bigarray[:,:,1,i],k1*k2)
 
     return(bigmatrix)
+
+
+def get_slices(k2, max_width = 5):
+    start = 1 + np.random.randint(1, max_width)
+    return(np.arange(start, k2 - 2, max_width+1))
+
+def SCEP_MH_Gibbs_slice(k1, k2, K, beta, x_obs, gamma, half_num_try, step_size, base_prob_log = None, max_width = 5):
+    xk = np.copy(x_obs)
+
+    # loop across components
+    slices = get_slices(k2, max_width)
+    for i in range(len(slices) + 1):
+        if i == 0:
+            start = 0
+            end = slices[i]
+        elif i == len(slices):
+            start = slices[i-1] + 1
+            end = k2
+        else:
+            start = slices[i-1] + 1
+            end = slices[i]
+        width = end - start 
+
+
+        # incorporate new boundary terms
+        if base_prob_log is None:
+            base_prob_log = np.zeros([k1, k2, K])
+        base_prob_temp = base_prob_log[:, start:end, :]
+        if start != 0:
+            for j in range(k1):
+                for k in range(K):
+                    base_prob_temp[j, 0, k] += -beta * (k - x_obs[j, start - 1])**2
+        if end != k2:
+            for j in range(k1):
+                for k in range(K):
+                    base_prob_temp[j, width - 1, k] += -beta * (k - x_obs[j, end + 1])**2
+
+        # sample the knockoff for one componenet
+        xk[: , start:end] = SCEP_MH_Gibbs(k1, width, K, beta, x_obs[:, start:end], gamma, half_num_try, 
+            step_size, base_prob_temp)
+
+    return(xk)
+
 
 # checking correlation matrix and covariance matrix
 # k1 = 3
