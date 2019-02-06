@@ -1,17 +1,13 @@
 import math
 import numpy as np
-k1 = 3
-k2 = 2
-K = 4 # support {0,1,...,K-1}
-beta = 0.2
-numsamples = 100
+
 
 def log(x):
     if x==0:
         return(float("-inf"))
     return(math.log(x))
 
-def Gibbs_sampler(N):
+def Gibbs_sampler(k1, k2, K, beta, N = 100):
     # Gibbs sampler with N iterations
     current = np.zeros([k1,k2])
     for i in range(N):
@@ -53,7 +49,7 @@ def vec_to_int(vec, num_try, stepsize):
         out = base*out + i
     return(out)
             
-def p_marginal_change_log(x_ori, i, j, new):
+def p_marginal_change_log(x_ori, i, j, new, beta, k1, k2, K):
     # change of log density when new is added to x_ori[i,j]
     if x_ori[i,j]+new>=K or x_ori[i,j]+new<0:
         return(log(0))
@@ -68,9 +64,10 @@ def p_marginal_change_log(x_ori, i, j, new):
         res = res - beta*(x_ori[i,j]+new-x_ori[i,j+1])**2 + beta*(x_ori[i,j]-x_ori[i,j+1])**2
     return(res)
 
-def SCEP_MH_Gibbs(x_obs, gamma, half_num_try, step_size):
+def SCEP_MH_Gibbs(k1, k2, K, beta, x_obs, gamma, half_num_try, step_size):
     # half_num_try is the m in the paper
     # step_size is t
+    # assumes k1 >= k2
     [k1, k2] = x_obs.shape
     num_try = 2*half_num_try
     grid = [x*step_size for x in list(range(-half_num_try,half_num_try+1))]
@@ -89,7 +86,7 @@ def SCEP_MH_Gibbs(x_obs, gamma, half_num_try, step_size):
                 parallel_decendent = [0]*k2
                 parallel_decendent[j] = grid[w]
                 probs[w] = parallel_cond_density_log[i,j,vec_to_int(parallel_decendent,num_try,step_size)]
-                probs[w] = probs[w] + p_marginal_change_log(x_obs,i,j,grid[w])
+                probs[w] = probs[w] + p_marginal_change_log(x_obs,i,j,grid[w],beta, k1,k2, K)
             oriprobs = probs.copy()
             probs = [x-max(probs) for x in probs]
             probs = [math.exp(x) for x in probs]
@@ -102,7 +99,7 @@ def SCEP_MH_Gibbs(x_obs, gamma, half_num_try, step_size):
                 ref_decendent = [0]*k2
                 ref_decendent[j] = grid[w] + proposal
                 refprobs[w] = parallel_cond_density_log[i,j,vec_to_int(ref_decendent,num_try,step_size)]
-                refprobs[w] = refprobs[w] + p_marginal_change_log(x_obs,i,j,grid[w]+proposal)
+                refprobs[w] = refprobs[w] + p_marginal_change_log(x_obs,i,j,grid[w]+proposal,beta,k1,k2,K)
             remove = max(refprobs + oriprobs)
             refprobs = [x-remove for x in refprobs]
             oriprobs = [x-remove for x in oriprobs]
@@ -209,14 +206,25 @@ def SCEP_MH_Gibbs(x_obs, gamma, half_num_try, step_size):
                         new_log = new_log + log(1-gamma*min(1,math.exp(acc_ratio_log)))
                     parallel_cond_density_log[i+1,0,dec_int] = new_log
 
-bigarray = np.zeros([k1,k2,2,numsamples])
-bigmatrix = np.zeros([numsamples,2*k1*k2])
-for i in range(numsamples):
-    bigarray[:,:,0,i] = Gibbs_sampler(100)
-    bigarray[:,:,1,i] = SCEP_MH_Gibbs(bigarray[:,:,0,i], 0.9, 1, 1) # I tried m=t=1
-    bigmatrix[i,0:(k1*k2)] = np.reshape(bigarray[:,:,0,i],k1*k2)
-    bigmatrix[i,(k1*k2):(2*k1*k2)] = np.reshape(bigarray[:,:,1,i],k1*k2)
+def sim(k1, k2, K, beta, numsamples, m, t, N_gibbs):
+
+    bigarray = np.zeros([k1,k2,2,numsamples])
+    bigmatrix = np.zeros([numsamples,2*k1*k2])
+    for i in range(numsamples):
+        bigarray[:,:,0,i] = Gibbs_sampler(k1, k2, K, beta, N_gibbs)
+        bigarray[:,:,1,i] = SCEP_MH_Gibbs(k1, k2, K, beta, bigarray[:,:,0,i], 0.9, m, t) # I tried m=t=1
+        bigmatrix[i,0:(k1*k2)] = np.reshape(bigarray[:,:,0,i],k1*k2)
+        bigmatrix[i,(k1*k2):(2*k1*k2)] = np.reshape(bigarray[:,:,1,i],k1*k2)
+
+    return(bigmatrix)
 
 # checking correlation matrix and covariance matrix
-print(np.corrcoef(np.transpose(bigmatrix)))
-print(np.cov(np.transpose(bigmatrix)))
+# k1 = 3
+# k2 = 2
+# K = 4 # support {0,1,...,K-1}
+# beta = 0.2
+# numsamples = 100
+# bigmatrix = sim(k1, k2, K, beta, numsamples, 1, 1)
+
+#print(np.corrcoef(np.transpose(bigmatrix)))
+#print(np.cov(np.transpose(bigmatrix)))
