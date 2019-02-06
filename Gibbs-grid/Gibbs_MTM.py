@@ -1,6 +1,7 @@
 import math
 import numpy as np
 import multiprocessing as mp
+from joblib import Parallel, delayed
 
 
 def log(x):
@@ -284,7 +285,19 @@ def sim_slice(k1, k2, K, beta, gamma, half_num_try, step_size,
         results = [sim_one_slice(k1, k2, K, beta, gamma, half_num_try, step_size, N_gibbs, max_width) for i in range(n_sim)]
 
 
-    return(results)
+    return(np.vstack(results))
+
+def sim_slice2(k1, k2, K, beta, gamma, half_num_try, step_size, 
+    base_prob_log = None, max_width = 5, n_sim = 1, cores = None, N_gibbs = 100):
+    # this version of the paralellization seems to be faster
+
+    if cores is not None:
+        results = Parallel(n_jobs = cores)(delayed(sim_one_slice)(k1, k2, K, beta, gamma, half_num_try, step_size, N_gibbs, max_width) for i in range(n_sim))
+    else:
+        results = [sim_one_slice(k1, k2, K, beta, gamma, half_num_try, step_size, N_gibbs, max_width) for i in range(n_sim)]
+
+
+    return(np.vstack(results))
 
 
 
