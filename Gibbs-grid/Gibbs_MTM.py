@@ -49,7 +49,7 @@ def vec_to_int(vec, num_try, stepsize):
         out = base*out + i
     return(out)
             
-def p_marginal_change_log(x_ori, i, j, new, beta, k1, k2, K):
+def p_marginal_change_log(x_ori, i, j, new, beta, k1, k2, K, base_prob_log = None):
     # change of log density when new is added to x_ori[i,j]
     if x_ori[i,j]+new>=K or x_ori[i,j]+new<0:
         return(log(0))
@@ -62,9 +62,11 @@ def p_marginal_change_log(x_ori, i, j, new, beta, k1, k2, K):
         res = res - beta*(x_ori[i,j]+new-x_ori[i+1,j])**2 + beta*(x_ori[i,j]-x_ori[i+1,j])**2
     if j<k2-1:
         res = res - beta*(x_ori[i,j]+new-x_ori[i,j+1])**2 + beta*(x_ori[i,j]-x_ori[i,j+1])**2
+    if base_prob_log is not None:
+        res = base_prob_log[i, j, x_ori[i,j]+new] - base_prob_log[i, j, x_ori[i,j]]
     return(res)
 
-def SCEP_MH_Gibbs(k1, k2, K, beta, x_obs, gamma, half_num_try, step_size):
+def SCEP_MH_Gibbs(k1, k2, K, beta, x_obs, gamma, half_num_try, step_size, base_prob_log = None):
     # half_num_try is the m in the paper
     # step_size is t
     # assumes k1 >= k2
@@ -86,7 +88,7 @@ def SCEP_MH_Gibbs(k1, k2, K, beta, x_obs, gamma, half_num_try, step_size):
                 parallel_decendent = [0]*k2
                 parallel_decendent[j] = grid[w]
                 probs[w] = parallel_cond_density_log[i,j,vec_to_int(parallel_decendent,num_try,step_size)]
-                probs[w] = probs[w] + p_marginal_change_log(x_obs,i,j,grid[w],beta, k1,k2, K)
+                probs[w] = probs[w] + p_marginal_change_log(x_obs,i,j,grid[w],beta, k1,k2, K, base_prob_log)
             oriprobs = probs.copy()
             probs = [x-max(probs) for x in probs]
             probs = [math.exp(x) for x in probs]
@@ -99,7 +101,7 @@ def SCEP_MH_Gibbs(k1, k2, K, beta, x_obs, gamma, half_num_try, step_size):
                 ref_decendent = [0]*k2
                 ref_decendent[j] = grid[w] + proposal
                 refprobs[w] = parallel_cond_density_log[i,j,vec_to_int(ref_decendent,num_try,step_size)]
-                refprobs[w] = refprobs[w] + p_marginal_change_log(x_obs,i,j,grid[w]+proposal,beta,k1,k2,K)
+                refprobs[w] = refprobs[w] + p_marginal_change_log(x_obs,i,j,grid[w]+proposal,beta,k1,k2,K, base_prob_log)
             remove = max(refprobs + oriprobs)
             refprobs = [x-remove for x in refprobs]
             oriprobs = [x-remove for x in oriprobs]
@@ -149,6 +151,8 @@ def SCEP_MH_Gibbs(k1, k2, K, beta, x_obs, gamma, half_num_try, step_size):
                     prev_decendent = decendent.copy()
                     prev_decendent[j] = grid[w]
                     # account for marginal density change; needs modification for slicing
+                    if base_prob_log is not None:
+                        probs[w] = probs[w] + base_prob_log[i,j,grid[w]+x_obs[i,j]] - base_prob_log[i,j,x_obs[i,j]]
                     if i>0:
                         probs[w] = probs[w]-beta*(grid[w]+x_obs[i,j]-x_obs[i-1,j])**2 + beta*(x_obs[i,j]-x_obs[i-1,j])**2
                     if j>0:
@@ -172,6 +176,8 @@ def SCEP_MH_Gibbs(k1, k2, K, beta, x_obs, gamma, half_num_try, step_size):
                     ref_decendent = decendent.copy()
                     ref_decendent[j] = grid[w] + proposal
                     # account for marginal density change; needs modification for slicing
+                    if base_prob_log is not None:
+                        refprobs[w] =  refprobs[w] + base_prob_log[i, j, proposal + x_obs[i,j]] - base_prob_log[i,j, x_obs[i,j]]
                     if i>0:
                         refprobs[w] = refprobs[w]-beta*(grid[w]+proposal+x_obs[i,j]-x_obs[i-1,j])**2 + beta*(x_obs[i,j]-x_obs[i-1,j])**2
                     if j>0:
