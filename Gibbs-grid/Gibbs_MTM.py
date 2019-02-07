@@ -11,7 +11,8 @@ def log(x):
 
 def Gibbs_sampler(k1, k2, K, beta, N = 100):
     # Gibbs sampler with N iterations
-    current = np.zeros([k1,k2])
+    random_state = int(np.random.multinomial(1,[1/K]*K).tolist().index(1))
+    current = np.full([k1,k2],random_state)
     for i in range(N):
         for j in range(k1):
             for k in range(k2):
@@ -28,7 +29,7 @@ def Gibbs_sampler(k1, k2, K, beta, N = 100):
                 probs = [x-max(probs) for x in probs]
                 probs = [math.exp(x) for x in probs]
                 probs = [x/sum(probs) for x in probs]
-                current[j,k] = np.random.multinomial(1,probs).tolist().index(1) # conditional distribution is multinomial
+                current[j,k] = int(np.random.multinomial(1,probs).tolist().index(1)) # conditional distribution is multinomial
     return(current)
     
 def int_to_vec(int, k2, num_try, stepsize):
