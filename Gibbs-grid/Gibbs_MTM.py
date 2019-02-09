@@ -262,7 +262,7 @@ def SCEP_MH_Gibbs_slice(k1, k2, K, beta, x_obs, gamma, half_num_try, step_size, 
         if end != k2:
             for j in range(k1):
                 for k in range(K):
-                    base_prob_temp[j, width - 1, k] += -beta * (k - x_obs[j, end + 1])**2
+                    base_prob_temp[j, width - 1, k] += -beta * (k - x_obs[j, end])**2
 
         # sample the knockoff for one componenet
         xk[: , start:end] = SCEP_MH_Gibbs(k1, width, K, beta, x_obs[:, start:end], gamma, half_num_try, 
