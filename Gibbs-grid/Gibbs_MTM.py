@@ -180,7 +180,7 @@ def SCEP_MH_Gibbs(k1, k2, K, beta, x_obs, gamma, half_num_try, step_size, base_p
                     ref_decendent[j] = grid[w] + proposal
                     # account for marginal density change; needs modification for slicing
                     if base_prob_log is not None:
-                        refprobs[w] =  refprobs[w] + base_prob_log[i, j, int(proposal + x_obs[i,j])] - base_prob_log[i,j, int(x_obs[i,j])]
+                        refprobs[w] =  refprobs[w] + base_prob_log[i, j, int(proposal + grid[w] + x_obs[i,j])] - base_prob_log[i,j, int(x_obs[i,j])]
                     if i>0:
                         refprobs[w] = refprobs[w]-beta*(grid[w]+proposal+x_obs[i,j]-x_obs[i-1,j])**2 + beta*(x_obs[i,j]-x_obs[i-1,j])**2
                     if j>0:
