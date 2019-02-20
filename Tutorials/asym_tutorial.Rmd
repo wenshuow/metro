@@ -1,10 +1,10 @@
 ---
-title: "Assymetric Markov Chain Tutorial"
+title: "Asymmetric Markov Chain Tutorial"
 author: "Stephen Bates and Wenshuo Wang"
 date: "`r Sys.Date()`"
 ---
 
-This notebook demonstrates the knockoff construction for the assymetric Markov Chain experiments. The data is generated as follows. Let
+This notebook demonstrates the knockoff construction for the asymmetric Markov Chain experiments. The data is generated as follows. Let
 $$
 Z_j\stackrel{i.i.d.}{\sim} \frac{I\cdot \mid  Y_\text{G} \mid  -(1-I)\cdot Y_\text{E}- \mu}{\sigma} \ \text{ for } j=1,\dots,p,
 $$
@@ -51,7 +51,7 @@ variance = 1.5-(1/sqrt(2*pi)-1/2)^2
 
 ```{r}
 library(foreach)
-source("../asymmetric/assym_MTM_core.R")
+source("../asymmetric/asym_MTM_core.R")
 ```
 
 First, we compute the stepsize of the grid of proposals for each variable. The recommended stepsize for variable $j$ is 
