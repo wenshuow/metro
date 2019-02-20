@@ -1,0 +1,135 @@
+---
+title: "Heavy-tailed Markov Chain Tutorial"
+author: "Stephen Bates and Wenshuo Wang"
+date: "`r Sys.Date()`"
+---
+
+```{r knitr_init, echo=FALSE, cache=FALSE}
+library(knitr)
+#library(rmdformats)
+
+## Global options
+options(max.print="75")
+opts_chunk$set(echo=TRUE,
+	             cache=TRUE,
+               prompt=FALSE,
+               tidy=TRUE,
+               comment=NA,
+               message=FALSE,
+               warning=FALSE)
+opts_knit$set(width=75)
+```
+
+This notebook demonstrates the knockoff construction for the heavy-tailed Markov Chain where each variable has t-distributed tailes. The model is
+$$X_1=\sqrt{\frac{\nu-2}\nu}Z_1, \quad X_{j+1}=\rho_j X_j + \sqrt{1-\rho_j^2}\sqrt{\frac{\nu-2}\nu}Z_{j+1}, \quad Z_j\stackrel{i.i.d.}{\sim} t_\nu$$
+for $j=1,\dots,p$, and we will take $\nu = 5$.
+
+## Multiple-try Metropolis
+
+We demonstrate the multiple-try metropolis technique with the recommended settings.
+
+```{r}
+# simulation parameters
+df.t = 5 # degree of freedom of t-distribution
+p = 50 # dimension of the random vector X
+numsamples = 100 # number of samples to generate knockoffs for
+rhos = rep(0.6,p-1) # the correlations
+
+#algorithm parameters
+halfnumtry = 4 # m/half number of candidates
+stepsize = 1.5 # step size in the unit of 1/\sqrt((\Sigma)^{-1}_{jj})
+```
+
+```{r}
+library(foreach)
+source("../heavy-tailed-t/t_MTM_core.R")
+```
+
+
+First, we compute the stepsize of the grid of proposals for each variable. The recommended stepsize for variable $j$ is 
+$$
+1.5 / \sqrt{(\Sigma^{-1})_{jj}}.
+$$
+```{r}
+#compute the proposal size at each step 
+#using an exact analytic calculation
+quantile.x = matrix(0,ncol=2*halfnumtry+1,nrow=p)
+sds = rep(0,p)
+sds[1] = sqrt(1-rhos[1]^2)
+for(i in 2:(p-1)){
+  sds[i] = sqrt((1-rhos[i-1]^2)*(1-rhos[i]^2)/(1-rhos[i-1]^2*rhos[i]^2))
+}
+sds[p] = sqrt(1-rhos[p-1]^2)
+for(i in 1:p){
+  quantile.x[i,] = ((-halfnumtry):halfnumtry)*sds[i]*stepsize
+}
+```
+
+Then, we sample the Markov chain and the knockoffs with the `SCEP.MH.MC` function.
+
+```{r warning=FALSE}
+set.seed(100)
+
+temp = matrix(0,ncol=2*p,nrow=1)
+start = Sys.time()
+result_mtm = foreach(i=1:numsamples,.combine='rbind') %do% {
+  #sample the MC
+  temp[1] = rt(1, df.t)*sqrt((df.t-2)/df.t)
+  for(j in 2:p)
+    temp[j] = rt(1, df.t)*sqrt((df.t-2)/df.t)*sqrt(1-rhos[j-1]^2) + rhos[j-1]*temp[j-1]
+  
+  #generate the knockoffs
+  temp[(p+1):(2*p)] = SCEP.MH.MC(temp[1:p],0.999,quantile.x)
+  temp
+}
+end = Sys.time()
+print(paste0("Average time per observation + knockoff (seconds): ", (end - start) / numsamples))
+
+dim(result_mtm)
+```
+
+We can compute the mean correlation between $X_j$ and $\tilde{X}_j$ to measure the knockoff quality:
+
+```{r}
+cors = c()
+for(j in 1:p) {
+  cors = c(cors, cor(result_mtm[, j], result_mtm[, j+p]))
+}
+mean(cors)
+```
+
+## Covariance-guided proposals
+
+We can also generate knockoffs with the covariance-guided proposals with the `SCEP.MH.MC.COV` function. These proposals are motivated by a Gaussian approximation (indeed, they are optimal for Gaussian distributions), but they produce *exact* knockoffs because of the Metropolis--Hastings correction.
+
+```{r}
+set.seed(100)
+
+temp = matrix(0,ncol=2*p,nrow=1)
+start = Sys.time()
+result_cov = foreach(i=1:numsamples,.combine='rbind',.packages = 'MASS') %do% {
+  #sample the MC
+  temp[1] = rt(1, df.t)*sqrt((df.t-2)/df.t)
+  for(j in 2:p)
+    temp[j] = rt(1, df.t)*sqrt((df.t-2)/df.t)*sqrt(1-rhos[j-1]^2) + rhos[j-1]*temp[j-1]
+
+  # generate the knockoffs
+  xk = SCEP.MH.MC.COV(temp[1:p],1,rep(0,p), prop.mat, cond.means.coeff, cond.vars)
+  temp[(p+1):(2*p)] = xk[1:p]
+  temp
+}
+end = Sys.time()
+print(paste0("Average time per observation + knockoff (seconds): ", (end - start) / numsamples))
+
+dim(result_cov)
+```
+
+We can again compute the mean correlation between $X_j$ and $\tilde{X}_j$ to check the knockoff quality:
+
+```{r}
+cors = c()
+for(j in 1:p) {
+  cors = c(cors, cor(result_cov[, j], result_cov[, j+p]))
+}
+mean(cors)
+```

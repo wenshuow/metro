@@ -1,5 +1,6 @@
 library(bayess)
 library(purrr)
+library(knockoff)
 
 # Take an integer 1 to 2^k and represent as a k2-dim vector of +- 1
 # Arguments:
@@ -81,7 +82,7 @@ scep_adjust = function(x, p, scep_param) {
 
 
 
-# Generate an ising model for X with parameter k1.
+# Generate an ising model for X.
 #
 # Arguments:
 #   X: The variables, grid of +- 1
@@ -220,6 +221,26 @@ ising_knockoff = function(X, k1, k2, alpha, seed = NULL, scep_param = 0, B = NUL
   return(Xk)
 }
 
+
+# Generate an ising model for X using slicing.
+#
+# Arguments:
+#   X: The variables, grid of +- 1
+#   k1: first dimension of grid
+#   k2: second dimension of grid
+#   alpha: Ising model parameter
+#   seed: optional random seed for reproducibility
+#   scep_param: number in (0,1) that parameterizes scep_construction
+#   B: k1 x k2 matrix of field effects given as [0,1] probabilities
+#   slices: a vector of integers of the columns of X to condition on
+#   max_width: maximal allowable slice size
+#
+# Returns:
+#   The sampled knockoff: a k1 x k2 grid of +- 1
+#
+# Note:
+#   k1 should be larger than or equal to k2 for fastest computation.
+#   Knockoffs are generated along second axis first.
 ising_knockoff_slice = function(X, k1, k2, alpha, seed = NULL, scep_param = 0, B = NULL, slices = NULL, max_width = NULL) {
   if(is.null(slices)) {
     if(is.null(max_width)) {max_width = 10}
@@ -267,6 +288,15 @@ ising_knockoff_slice = function(X, k1, k2, alpha, seed = NULL, scep_param = 0, B
   return(Xk)
 }
 
+
+# Generates a (random) slicing pattern for a k1xk2 grid.
+#
+# Arguments:
+#   k2: dimension of the grid
+#   max_width: the largest allowable slice size (larger leads to slower computation)
+#
+# Returns:
+#   vector of indices between 1 and k2 of columns to condition on
 get_slices = function(k2, max_width = 10) {
   start = 2 + rdunif(1, 1, max_width - 1)
   return(seq.int(from = start, to = k2 - 2, by = max_width + 1))
@@ -362,6 +392,17 @@ generate_ising_pair = function(k1, k2, alpha = 1, niter = 1000, seed = NULL, sce
   return(A)
 }
 
+# Gives a lower bound for the MAC given a correlation matrix
+#
+# Arguments:
+#   S: a correlation matrix
+#   max_size: the maximum allowable SDP size
+# 
+# Returns:
+#   MAC lower bound (a real number)
+#
+# Note:
+#   lower max_size leads to a faster solve time but a worse lower bound.
 sdp_lb = function(S, max_size = 500) {
   s = c()
   while(ncol(S) > max_size) {

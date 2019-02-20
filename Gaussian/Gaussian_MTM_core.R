@@ -1,28 +1,28 @@
 library(knockoff)
 library(foreach)
-library(doParallel)
-registerDoParallel(makeCluster(8)) # number of cores for parallelization
 
-df.t = 5 # degree of freedom of t-distribution
-p = 500 # dimension of the random vector X
-numsamples = 10 # number of samples to generate knockoffs for
-rhos = rep(0.6,p-1) # the correlations
-halfnumtry = 4 # m/half number of candidates
-stepsize = 1.5 # step size in the unit of 1/\sqrt((\Sigma)^{-1}_{jj})
+### required parameters
+# p
+# numsamples
+# rhos
+# halfnumtry
+# stepsize
 
-
+q.prop.pdf.log = function(j, xj, tildexj){
+  return(log(exp(-(xj-tildexj)^2/(2*var.sigma2))/sqrt(2*pi*var.sigma2)))
+}
 
 p.marginal.trans.log = function(j, xj, xjm1){
   if(j>p)
     return("error!")
   if(j==1)
-    return(dt(xj*sqrt(df.t/(df.t-2)), df.t, log=TRUE)+0.5*log(df.t)-0.5*log(df.t-2))
-  return(dt((xj-rhos[j-1]*xjm1)*sqrt(df.t/(df.t-2))/sqrt(1-rhos[j-1]^2), df.t, log=TRUE)+0.5*(log(df.t)-log(df.t-2)-log(1-rhos[j-1]^2)))
+    return(-xj^2/2-0.5*log(2*pi))
+  return(-(xj-rhos[j-1]*xjm1)^2/(2*(1-rhos[j-1]^2)) - 0.5*log(2*pi*(1-rhos[j-1]^2)))
 }
 
 p.marginal.log = function(x){
   p.dim = length(x)
-  res = p.marginal.trans.log(1, x[1], 0)
+  res = -x[1]^2/2-0.5*log(2*pi)
   if(p.dim==1)
     return(res)
   for(j in 2:length(x)){
@@ -33,9 +33,6 @@ p.marginal.log = function(x){
 
 p.joint.log = function(x, tildex, w)
   return(c(FALSE,p.marginal.log(x)))
-
-
-
 
 SCEP.MH.MC = function(x.obs, gamma, x.grid){
   p = length(x.obs)
@@ -56,7 +53,7 @@ SCEP.MH.MC = function(x.obs, gamma, x.grid){
   # first do j=1
   ws[,1] = x.grid[1,] + x.obs[1]
   for(k in 1:(2*midtry-2)){
-      parallel.marg.density.log[k,1] = marg.density.log + p.marginal.trans.log(1,ws[k,1],0) + p.marginal.trans.log(2,x.obs[2],ws[k,1]) - p.marginal.trans.log(1,x.obs[1],0) - p.marginal.trans.log(2,x.obs[2],x.obs[1])
+    parallel.marg.density.log[k,1] = marg.density.log + p.marginal.trans.log(1,ws[k,1],0) + p.marginal.trans.log(2,x.obs[2],ws[k,1]) - p.marginal.trans.log(1,x.obs[1],0) - p.marginal.trans.log(2,x.obs[2],x.obs[1])
   }
   probs = rep(0,(2*midtry-2))
   for(k in 1:(2*midtry-2)){
@@ -70,7 +67,7 @@ SCEP.MH.MC = function(x.obs, gamma, x.grid){
   selectionprob = probs[indices[1]]
   refws[,1] = x.grid[1,] + ws[indices[1],1]
   for(k in 1:(2*midtry-2)){
-      refs.parallel.marg.density.log[k,1] = marg.density.log + p.marginal.trans.log(1,refws[k,1],0) + p.marginal.trans.log(2,x.obs[2],refws[k,1]) - p.marginal.trans.log(1,x.obs[1],0) - p.marginal.trans.log(2,x.obs[2],x.obs[1])
+    refs.parallel.marg.density.log[k,1] = marg.density.log + p.marginal.trans.log(1,refws[k,1],0) + p.marginal.trans.log(2,x.obs[2],refws[k,1]) - p.marginal.trans.log(1,x.obs[1],0) - p.marginal.trans.log(2,x.obs[2],x.obs[1])
   }
   refprobs = rep(0,(2*midtry-2))
   for(k in 1:(2*midtry-2)){
@@ -226,25 +223,3 @@ SCEP.MH.MC = function(x.obs, gamma, x.grid){
   return(tildexs)
 }
 
-p = 500
-bigmatrix = matrix(0,ncol=2*p,nrow=numsamples)
-quantile.x = matrix(0,ncol=2*halfnumtry+1,nrow=p)
-sds = rep(0,p)
-sds[1] = sqrt(1-rhos[1]^2)
-for(i in 2:(p-1)){
-  sds[i] = sqrt((1-rhos[i-1]^2)*(1-rhos[i]^2)/(1-rhos[i-1]^2*rhos[i]^2))
-}
-sds[p] = sqrt(1-rhos[p-1]^2)
-for(i in 1:p){
-  quantile.x[i,] = ((-halfnumtry):halfnumtry)*sds[i]*stepsize
-}
-# quantile.x is the candidate set plus the current state, with step size in the unit of 1/\sqrt((\Sigma)^{-1}_{jj})
-
-bigmatrixresult = foreach(i=1:numsamples,.combine='rbind') %dopar% {
-  bigmatrix[i,1] = rt(1, df.t)*sqrt((df.t-2)/df.t)
-  for(j in 2:p)
-    bigmatrix[i,j] = rt(1, df.t)*sqrt((df.t-2)/df.t)*sqrt(1-rhos[j-1]^2) + rhos[j-1]*bigmatrix[i,j-1]
-  bigmatrix[i,(p+1):(2*p)] = SCEP.MH.MC(bigmatrix[i,1:p],0.999,quantile.x)
-  bigmatrix[i,]
-}
-# bigmatrixresult is an nx2p matrix, each row being an indpendent sample of (X, \tilde X).

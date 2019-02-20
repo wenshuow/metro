@@ -1,7 +1,7 @@
 library(knockoff)
 library(foreach)
 library(doParallel)
-registerDoParallel(makeCluster(8)) # number of cores for parallelization
+registerDoParallel(makeCluster(1)) # number of cores for parallelization
 
 
 p = 500 # dimension of the random vector X
