@@ -20,13 +20,13 @@ opts_chunk$set(echo=TRUE,
 opts_knit$set(width=75)
 ```
 
-This notebook demonstrates the knockoff construction for the heavy-tailed Markov Chain where each variable has t-distributed tailes. The model is
+This notebook demonstrates the knockoff construction for the heavy-tailed Markov Chain where each variable has t-distributed tails. The model is
 $$X_1=\sqrt{\frac{\nu-2}\nu}Z_1, \quad X_{j+1}=\rho_j X_j + \sqrt{1-\rho_j^2}\sqrt{\frac{\nu-2}\nu}Z_{j+1}, \quad Z_j\stackrel{i.i.d.}{\sim} t_\nu$$
-for $j=1,\dots,p$, and we will take $\nu = 5$.
+for $j=1,\dots,p$, and we will take $\nu = 5$. Section 5.2.1 of the accompanying paper presents simulation results in this setting.
 
 ## Multiple-try Metropolis
 
-We demonstrate the multiple-try metropolis technique with the recommended settings.
+We demonstrate the multiple-try metropolis technique (Section 3.3 of the paper) with the recommended settings.
 
 ```{r}
 # simulation parameters
@@ -42,11 +42,11 @@ stepsize = 1.5 # step size in the unit of 1/\sqrt((\Sigma)^{-1}_{jj})
 
 ```{r}
 library(foreach)
-source("../heavy-tailed-t/t_MTM_core.R")
+source("../heavy-tailed-t/t_MTM_core.R") #load the knockoff functions
 ```
 
 
-First, we compute the stepsize of the grid of proposals for each variable. The recommended stepsize for variable $j$ is 
+First, we compute the stepsize of the grid of proposals for each variable. The recommended stepsize for variable $j$ (Section 3.3 of the paper) is 
 $$
 1.5 / \sqrt{(\Sigma^{-1})_{jj}}.
 $$
@@ -83,7 +83,7 @@ result_mtm = foreach(i=1:numsamples,.combine='rbind') %do% {
   temp
 }
 end = Sys.time()
-print(paste0("Average time per observation + knockoff (seconds): ", (end - start) / numsamples))
+print(paste0("Average time per observation + knockoff (seconds): ", round((end - start) / numsamples, digits = 3)))
 
 dim(result_mtm)
 ```
@@ -100,7 +100,7 @@ mean(cors)
 
 ## Covariance-guided proposals
 
-We can also generate knockoffs with the covariance-guided proposals with the `SCEP.MH.MC.COV` function. These proposals are motivated by a Gaussian approximation (indeed, they are optimal for Gaussian distributions), but they produce *exact* knockoffs because of the Metropolis--Hastings correction.
+We can also generate knockoffs with the covariance-guided proposals (Section 3.2 of the paper) with the `SCEP.MH.MC.COV` function. These proposals are motivated by a Gaussian approximation (indeed, they are optimal for Gaussian distributions), but they produce *exact* knockoffs because of the Metropolis--Hastings correction.
 
 ```{r}
 set.seed(100)
@@ -119,7 +119,7 @@ result_cov = foreach(i=1:numsamples,.combine='rbind',.packages = 'MASS') %do% {
   temp
 }
 end = Sys.time()
-print(paste0("Average time per observation + knockoff (seconds): ", (end - start) / numsamples))
+print(paste0("Average time per observation + knockoff (seconds): ", round((end - start) / numsamples, digits = 3)))
 
 dim(result_cov)
 ```

@@ -11753,7 +11753,7 @@ div#notebook {
 <div class="text_cell_render border-box-sizing rendered_html">
 <h1 id="Gibbs-measure-over-a-grid-tutorial">Gibbs measure over a grid tutorial<a class="anchor-link" href="#Gibbs-measure-over-a-grid-tutorial">&#182;</a></h1><p>This notebook illustrates the knockoff construction for a Gibbs measure across a grid with probability mass function
 $$p(X) = \frac{1}{Z(\beta_0)} \exp\left(-\beta_0\sum_{\substack{s, t \in \mathcal I \\\|s-t\|_1=1}}(x_s-x_t)^2 \right),\quad\mathcal I = \{(i_1,i_2) : 1\le i_1,i_2 \le d\}.$$
-Each variable has support $\{0,\dots,K\}$ where $K$ is a positive integer.</p>
+Each variable has support $\{0,\dots,K\}$ where $K$ is a positive integer.  Section 5.2.4 of the accompanying paper presents a large set of simulation results in this setting.</p>
 
 </div>
 </div>
@@ -11763,7 +11763,7 @@ Each variable has support $\{0,\dots,K\}$ where $K$ is a positive integer.</p>
 </div>
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h2 id="Multiple-try-Metropolis">Multiple-try Metropolis<a class="anchor-link" href="#Multiple-try-Metropolis">&#182;</a></h2><p>For large $K$, Multiple-try Metropolis gives the most efficient sampler for this class of distributions. We demonstrate this technique below.</p>
+<h2 id="Multiple-try-Metropolis">Multiple-try Metropolis<a class="anchor-link" href="#Multiple-try-Metropolis">&#182;</a></h2><p>For large $K$, Multiple-try Metropolis (Section 3.3 of the paper) gives the most efficient sampler for this class of distributions. We demonstrate this technique below.</p>
 
 </div>
 </div>
@@ -11775,6 +11775,7 @@ Each variable has support $\{0,\dots,K\}$ where $K$ is a positive integer.</p>
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">math</span>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">time</span>
 
 <span class="o">%</span><span class="k">run</span> ../Gibbs-grid/Gibbs_MTM #load the Gibbs simulation functions
 </pre></div>
@@ -11814,7 +11815,7 @@ Each variable has support $\{0,\dots,K\}$ where $K$ is a positive integer.</p>
 </div>
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<p>We use a Gibbs sampler to generate samples from the model, and then generate a corresponding knockoff.</p>
+<p>We use a Gibbs sampler to generate samples from the model, and then generate a corresponding knockoff with the function <code>SCEP_MH_Gibbs_slice</code>.</p>
 
 </div>
 </div>
@@ -11825,13 +11826,23 @@ Each variable has support $\{0,\dots,K\}$ where $K$ is a positive integer.</p>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="n">bigmatrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="n">numsamples</span><span class="p">,</span><span class="mi">2</span><span class="o">*</span><span class="n">p</span><span class="p">])</span> <span class="c1">#store simulation results</span>
+
+<span class="c1">#generate each observation and knockoff</span>
+<span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
 <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">numsamples</span><span class="p">):</span>
+    <span class="c1"># sample a single observation</span>
     <span class="n">x_obs</span> <span class="o">=</span> <span class="n">Gibbs_sampler</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="n">K</span><span class="p">,</span> <span class="n">beta</span><span class="p">,</span> <span class="n">N</span> <span class="o">=</span> <span class="n">N_gibbs</span><span class="p">)</span>
+    
+    <span class="c1">#generate a knockoff for the observation</span>
     <span class="n">xk</span> <span class="o">=</span> <span class="n">SCEP_MH_Gibbs_slice</span><span class="p">(</span><span class="n">k1</span> <span class="o">=</span> <span class="n">d</span><span class="p">,</span> <span class="n">k2</span> <span class="o">=</span> <span class="n">d</span><span class="p">,</span> <span class="n">K</span> <span class="o">=</span> <span class="n">K</span><span class="p">,</span> 
         <span class="n">beta</span> <span class="o">=</span> <span class="n">beta</span><span class="p">,</span> <span class="n">x_obs</span> <span class="o">=</span> <span class="n">x_obs</span><span class="p">,</span>  <span class="n">gamma</span> <span class="o">=</span> <span class="n">gamma</span><span class="p">,</span> 
         <span class="n">half_num_try</span> <span class="o">=</span> <span class="n">half_num_try</span><span class="p">,</span> <span class="n">step_size</span> <span class="o">=</span> <span class="n">step_size</span><span class="p">,</span> 
         <span class="n">max_width</span> <span class="o">=</span> <span class="n">max_width</span><span class="p">)</span>
     <span class="n">bigmatrix</span><span class="p">[</span><span class="n">i</span><span class="p">,:]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">x_obs</span><span class="p">,</span> <span class="n">p</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">xk</span><span class="p">,</span> <span class="n">p</span><span class="p">))</span>
+<span class="n">end</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Average time per observation + knockoff (seconds): &quot;</span> <span class="o">+</span> \
+      <span class="s1">&#39;</span><span class="si">%.3f</span><span class="s1">&#39;</span><span class="o">%</span><span class="p">((</span><span class="n">end</span> <span class="o">-</span> <span class="n">start</span><span class="p">)</span> <span class="o">/</span> <span class="n">numsamples</span><span class="p">))</span>
     
 <span class="n">np</span><span class="o">.</span><span class="n">shape</span><span class="p">(</span><span class="n">bigmatrix</span><span class="p">)</span>
 </pre></div>
@@ -11844,11 +11855,76 @@ Each variable has support $\{0,\dots,K\}$ where $K$ is a positive integer.</p>
 <div class="output">
 
 
+<div class="output_area"><div class="prompt"></div>
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>Average time per observation + knockoff (seconds): 0.348
+</pre>
+</div>
+</div>
+
 <div class="output_area"><div class="prompt output_prompt">Out[3]:</div>
 
 
 <div class="output_text output_subarea output_execute_result">
 <pre>(100, 50)</pre>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[4]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="s1">&#39;</span><span class="si">%.5f</span><span class="s1">&#39;</span><span class="o">%</span><span class="p">((</span><span class="n">start</span> <span class="o">-</span> <span class="n">end</span><span class="p">)</span> <span class="o">/</span> <span class="n">numsamples</span><span class="p">)</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area"><div class="prompt output_prompt">Out[4]:</div>
+
+
+<div class="output_text output_subarea output_execute_result">
+<pre>&#39;-0.34821&#39;</pre>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[5]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="p">(</span><span class="n">start</span> <span class="o">-</span> <span class="n">end</span><span class="p">)</span> <span class="o">/</span> <span class="n">numsamples</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area"><div class="prompt output_prompt">Out[5]:</div>
+
+
+<div class="output_text output_subarea output_execute_result">
+<pre>-0.3482085299491882</pre>
 </div>
 
 </div>
@@ -11869,7 +11945,7 @@ Each variable has support $\{0,\dots,K\}$ where $K$ is a positive integer.</p>
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[4]:</div>
+<div class="prompt input_prompt">In&nbsp;[6]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="n">cors</span> <span class="o">=</span> <span class="p">[]</span>
@@ -11887,11 +11963,11 @@ Each variable has support $\{0,\dots,K\}$ where $K$ is a positive integer.</p>
 <div class="output">
 
 
-<div class="output_area"><div class="prompt output_prompt">Out[4]:</div>
+<div class="output_area"><div class="prompt output_prompt">Out[6]:</div>
 
 
 <div class="output_text output_subarea output_execute_result">
-<pre>0.7109167017670421</pre>
+<pre>0.6861175462821908</pre>
 </div>
 
 </div>

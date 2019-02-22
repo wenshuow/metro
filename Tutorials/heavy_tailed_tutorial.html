@@ -11,7 +11,7 @@
 
 <meta name="author" content="Stephen Bates and Wenshuo Wang" />
 
-<meta name="date" content="2019-02-20" />
+<meta name="date" content="2019-02-22" />
 
 <title>Heavy-tailed Markov Chain Tutorial</title>
 
@@ -124,15 +124,15 @@ $(document).ready(function () {
 
 <h1 class="title toc-ignore">Heavy-tailed Markov Chain Tutorial</h1>
 <h4 class="author"><em>Stephen Bates and Wenshuo Wang</em></h4>
-<h4 class="date"><em>2019-02-20</em></h4>
+<h4 class="date"><em>2019-02-22</em></h4>
 
 </div>
 
 
-<p>This notebook demonstrates the knockoff construction for the heavy-tailed Markov Chain where each variable has t-distributed tailes. The model is <span class="math display">\[X_1=\sqrt{\frac{\nu-2}\nu}Z_1, \quad X_{j+1}=\rho_j X_j + \sqrt{1-\rho_j^2}\sqrt{\frac{\nu-2}\nu}Z_{j+1}, \quad Z_j\stackrel{i.i.d.}{\sim} t_\nu\]</span> for <span class="math inline">\(j=1,\dots,p\)</span>, and we will take <span class="math inline">\(\nu = 5\)</span>.</p>
+<p>This notebook demonstrates the knockoff construction for the heavy-tailed Markov Chain where each variable has t-distributed tails. The model is <span class="math display">\[X_1=\sqrt{\frac{\nu-2}\nu}Z_1, \quad X_{j+1}=\rho_j X_j + \sqrt{1-\rho_j^2}\sqrt{\frac{\nu-2}\nu}Z_{j+1}, \quad Z_j\stackrel{i.i.d.}{\sim} t_\nu\]</span> for <span class="math inline">\(j=1,\dots,p\)</span>, and we will take <span class="math inline">\(\nu = 5\)</span>. Section 5.2.1 of the accompanying paper presents simulation results in this setting.</p>
 <div id="multiple-try-metropolis" class="section level2">
 <h2>Multiple-try Metropolis</h2>
-<p>We demonstrate the multiple-try metropolis technique with the recommended settings.</p>
+<p>We demonstrate the multiple-try metropolis technique (Section 3.3 of the paper) with the recommended settings.</p>
 <pre class="r"><code># simulation parameters
 df.t = 5  # degree of freedom of t-distribution
 p = 50  # dimension of the random vector X
@@ -143,8 +143,8 @@ rhos = rep(0.6, p - 1)  # the correlations
 halfnumtry = 4  # m/half number of candidates
 stepsize = 1.5  # step size in the unit of 1/\sqrt((\Sigma)^{-1}_{jj})</code></pre>
 <pre class="r"><code>library(foreach)
-source(&quot;../heavy-tailed-t/t_MTM_core.R&quot;)</code></pre>
-<p>First, we compute the stepsize of the grid of proposals for each variable. The recommended stepsize for variable <span class="math inline">\(j\)</span> is <span class="math display">\[
+source(&quot;../heavy-tailed-t/t_MTM_core.R&quot;)  #load the knockoff functions</code></pre>
+<p>First, we compute the stepsize of the grid of proposals for each variable. The recommended stepsize for variable <span class="math inline">\(j\)</span> (Section 3.3 of the paper) is <span class="math display">\[
 1.5 / \sqrt{(\Sigma^{-1})_{jj}}.
 \]</span></p>
 <pre class="r"><code># compute the proposal size at each step using an exact analytic calculation
@@ -175,8 +175,9 @@ result_mtm = foreach(i = 1:numsamples, .combine = &quot;rbind&quot;) %do% {
     temp
 }
 end = Sys.time()
-print(paste0(&quot;Average time per observation + knockoff (seconds): &quot;, (end - start)/numsamples))</code></pre>
-<pre><code>[1] &quot;Average time per observation + knockoff (seconds): 0.256476562023163&quot;</code></pre>
+print(paste0(&quot;Average time per observation + knockoff (seconds): &quot;, round((end - 
+    start)/numsamples, digits = 3)))</code></pre>
+<pre><code>[1] &quot;Average time per observation + knockoff (seconds): 0.191&quot;</code></pre>
 <pre class="r"><code>dim(result_mtm)</code></pre>
 <pre><code>[1] 100 100</code></pre>
 <p>We can compute the mean correlation between <span class="math inline">\(X_j\)</span> and <span class="math inline">\(\tilde{X}_j\)</span> to measure the knockoff quality:</p>
@@ -189,7 +190,7 @@ mean(cors)</code></pre>
 </div>
 <div id="covariance-guided-proposals" class="section level2">
 <h2>Covariance-guided proposals</h2>
-<p>We can also generate knockoffs with the covariance-guided proposals with the <code>SCEP.MH.MC.COV</code> function. These proposals are motivated by a Gaussian approximation (indeed, they are optimal for Gaussian distributions), but they produce <em>exact</em> knockoffs because of the Metropolis–Hastings correction.</p>
+<p>We can also generate knockoffs with the covariance-guided proposals (Section 3.2 of the paper) with the <code>SCEP.MH.MC.COV</code> function. These proposals are motivated by a Gaussian approximation (indeed, they are optimal for Gaussian distributions), but they produce <em>exact</em> knockoffs because of the Metropolis–Hastings correction.</p>
 <pre class="r"><code>set.seed(100)
 
 temp = matrix(0, ncol = 2 * p, nrow = 1)
@@ -208,8 +209,9 @@ result_cov = foreach(i = 1:numsamples, .combine = &quot;rbind&quot;, .packages =
         temp
     }
 end = Sys.time()
-print(paste0(&quot;Average time per observation + knockoff (seconds): &quot;, (end - start)/numsamples))</code></pre>
-<pre><code>[1] &quot;Average time per observation + knockoff (seconds): 0.0129103016853333&quot;</code></pre>
+print(paste0(&quot;Average time per observation + knockoff (seconds): &quot;, round((end - 
+    start)/numsamples, digits = 3)))</code></pre>
+<pre><code>[1] &quot;Average time per observation + knockoff (seconds): 0.011&quot;</code></pre>
 <pre class="r"><code>dim(result_cov)</code></pre>
 <pre><code>[1] 100 100</code></pre>
 <p>We can again compute the mean correlation between <span class="math inline">\(X_j\)</span> and <span class="math inline">\(\tilde{X}_j\)</span> to check the knockoff quality:</p>

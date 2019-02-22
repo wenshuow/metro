@@ -12,6 +12,7 @@ where $\mu$ and $\sigma$ are chosen so that the variables are centered with unit
 $$
 X_1=Z_1, \quad X_{j+1}=\rho_j X_j + \sqrt{1-\rho_j^2}Z_{j+1} \ \text{ for } j=2,\dots,p.
 $$
+Section 5.2.2 of the accompanying paper presents simulation results in this setting.
 
 ```{r knitr_init, echo=FALSE, cache=FALSE}
 library(knitr)
@@ -32,7 +33,7 @@ opts_knit$set(width=75)
 
 ## Multiple-try Metropolis
 
-We first demonstrate the multiple-try metropolis technique with the recommended settings.
+We first demonstrate the multiple-try metropolis technique (Section 3.3 of the paper) with the recommended settings.
 
 ```{r}
 # simulation parameters
@@ -51,10 +52,10 @@ variance = 1.5-(1/sqrt(2*pi)-1/2)^2
 
 ```{r}
 library(foreach)
-source("../asymmetric/asym_MTM_core.R")
+source("../asymmetric/asym_MTM_core.R") #load the knockoff functions
 ```
 
-First, we compute the stepsize of the grid of proposals for each variable. The recommended stepsize for variable $j$ is 
+First, we compute the stepsize of the grid of proposals for each variable. The recommended stepsize for variable $j$ (Section 3.3 of the paper) is 
 $$
 1.5 / \sqrt{(\Sigma^{-1})_{jj}}.
 $$
@@ -100,7 +101,7 @@ result_mtm = foreach(i=1:numsamples,.combine='rbind') %do% {
   temp
 }
 end = Sys.time()
-print(paste0("Average time per observation + knockoff (seconds): ", (end - start) / numsamples))
+print(paste0("Average time per observation + knockoff (seconds): ", round((end - start) / numsamples, digits = 3)))
 
 dim(result_mtm)
 ```
@@ -117,7 +118,7 @@ mean(cors)
 
 ## Covariance-guided proposals
 
-We can also generate knockoffs with the covariance-guided proposals with the `SCEP.MH.MC.COV` function. These proposals are motivated by a Gaussian approximation (indeed, they are optimal for Gaussian distributions), but they produce *exact* knockoffs because of the Metropolis--Hastings correction.
+We can also generate knockoffs with the covariance-guided proposals (Section 3.2 of the paper) with the `SCEP.MH.MC.COV` function. These proposals are motivated by a Gaussian approximation (indeed, they are optimal for Gaussian distributions), but they produce *exact* knockoffs because of the Metropolis--Hastings correction.
 
 ```{r}
 set.seed(100)
@@ -145,7 +146,7 @@ result_cov = foreach(i=1:numsamples,.combine='rbind',.packages = 'MASS') %do% {
   temp
 }
 end = Sys.time()
-print(paste0("Average time per observation + knockoff (seconds): ", (end - start) / numsamples))
+print(paste0("Average time per observation + knockoff (seconds): ", round((end - start) / numsamples, digits = 3)))
 
 dim(result_cov)
 ```

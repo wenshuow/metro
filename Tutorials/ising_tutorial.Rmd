@@ -1,7 +1,7 @@
 ---
 title: "Ising Model Knockoffs Tutorial"
 author: "Stephen Bates and Wenshuo Wang"
-date: "`r Sys.Date()`"
+date: '`r Sys.Date()`'
 ---
 
 ```{r knitr_init, echo=FALSE, cache=FALSE}
@@ -24,7 +24,7 @@ This notebook illustrates the usage of the knockoff construction scripts to crea
 $$
 P(X) = \frac{1}{Z(\beta_0)} e^{\beta_0 \sum_{(i,i^\prime) \in E} X_i X_{i^\prime}}
 $$
-where $i$ and $i^\prime$ are each coordinates in the $d \times d$ grid, $E$ is the set of edges of the grid, and each $X_i \in \{-1, 1\}$.
+where $i$ and $i^\prime$ are each coordinates in the $d \times d$ grid, $E$ is the set of edges of the grid, and each $X_i \in \{-1, 1\}$.  Section 5.2.3 of the accompanying paper presents simulation results in this setting.
 
 
 
@@ -55,15 +55,16 @@ X = t(replicate(n, as.vector(isinghm(niter = 50, n = d, m = d, beta = 2*beta_0))
 dim(X)
 ```
 
-Next, we generate knockoffs for each sample using the `ising_knockoff` function.
+Next, we generate knockoffs for each sample using the `ising_knockoff` function (Section 4.6 of the paper).
 
 ```{r}
 start = Sys.time()
 set.seed(100)
-Xk = c()
+Xk = c() # store the sampled knockoffs
+#create knockoffs for each observation
 for(i in 1:n) {
   x = matrix(X[i, ], nrow = d, ncol = d)
-  xk = ising_knockoff(x, d, d, beta_0)
+  xk = ising_knockoff(x, d, d, beta_0) #sample one knockoff
   Xk = rbind(Xk, as.vector(xk))
 }
 end = Sys.time()
@@ -130,7 +131,7 @@ We see that the variables on the edges of the grid are less correlated with thei
 
 ## Knockoffs for large grids
 
-For large grids, we can still generate knockoffs efficiently using the divid-and-conquer technique, which is implemented in the `ising_knockoff_slice` function. We demonstrate this technique here.
+For large grids, we can still generate knockoffs efficiently using the divid-and-conquer technique (Section 4.4 of the paper), which is implemented in the `ising_knockoff_slice` function. We demonstrate this technique here.
 
 First, we sample from the Ising model on a grid.
 
@@ -161,7 +162,7 @@ for(i in 1:n) {
   Xk = rbind(Xk, as.vector(xk))
 }
 end = Sys.time()
-print(paste0("Average time per knockoff (seconds): ", (end - start) / n))
+print(paste0("Average time per knockoff (seconds): ", round((end - start) / n, digits = 3)))
 
 dim(Xk)
 ```

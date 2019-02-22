@@ -11,7 +11,7 @@
 
 <meta name="author" content="Stephen Bates and Wenshuo Wang" />
 
-<meta name="date" content="2019-02-20" />
+<meta name="date" content="2019-02-22" />
 
 <title>Ising Model Knockoffs Tutorial</title>
 
@@ -124,14 +124,14 @@ $(document).ready(function () {
 
 <h1 class="title toc-ignore">Ising Model Knockoffs Tutorial</h1>
 <h4 class="author"><em>Stephen Bates and Wenshuo Wang</em></h4>
-<h4 class="date"><em>2019-02-20</em></h4>
+<h4 class="date"><em>2019-02-22</em></h4>
 
 </div>
 
 
 <p>This notebook illustrates the usage of the knockoff construction scripts to create knockoffs for variables that are distributed according to the Ising model on a grid: <span class="math display">\[
 P(X) = \frac{1}{Z(\beta_0)} e^{\beta_0 \sum_{(i,i^\prime) \in E} X_i X_{i^\prime}}
-\]</span> where <span class="math inline">\(i\)</span> and <span class="math inline">\(i^\prime\)</span> are each coordinates in the <span class="math inline">\(d \times d\)</span> grid, <span class="math inline">\(E\)</span> is the set of edges of the grid, and each <span class="math inline">\(X_i \in \{-1, 1\}\)</span>.</p>
+\]</span> where <span class="math inline">\(i\)</span> and <span class="math inline">\(i^\prime\)</span> are each coordinates in the <span class="math inline">\(d \times d\)</span> grid, <span class="math inline">\(E\)</span> is the set of edges of the grid, and each <span class="math inline">\(X_i \in \{-1, 1\}\)</span>. Section 5.2.3 of the accompanying paper presents simulation results in this setting.</p>
 <div id="knockoffs-for-the-ising-model" class="section level2">
 <h2>Knockoffs for the Ising model</h2>
 <pre class="r"><code>library(tidyverse)
@@ -150,18 +150,19 @@ set.seed(100)
 X = t(replicate(n, as.vector(isinghm(niter = 50, n = d, m = d, beta = 2 * beta_0))))
 dim(X)</code></pre>
 <pre><code>[1] 500  25</code></pre>
-<p>Next, we generate knockoffs for each sample using the <code>ising_knockoff</code> function.</p>
+<p>Next, we generate knockoffs for each sample using the <code>ising_knockoff</code> function (Section 4.6 of the paper).</p>
 <pre class="r"><code>start = Sys.time()
 set.seed(100)
-Xk = c()
+Xk = c()  # store the sampled knockoffs
+# create knockoffs for each observation
 for (i in 1:n) {
     x = matrix(X[i, ], nrow = d, ncol = d)
-    xk = ising_knockoff(x, d, d, beta_0)
+    xk = ising_knockoff(x, d, d, beta_0)  #sample one knockoff
     Xk = rbind(Xk, as.vector(xk))
 }
 end = Sys.time()
 print(paste0(&quot;Average time per knockoff (seconds): &quot;, (end - start)/n))</code></pre>
-<pre><code>[1] &quot;Average time per knockoff (seconds): 0.0474198217391968&quot;</code></pre>
+<pre><code>[1] &quot;Average time per knockoff (seconds): 0.0387945857048035&quot;</code></pre>
 <pre class="r"><code>dim(Xk)</code></pre>
 <pre><code>[1] 500  25</code></pre>
 <p>The mean absolute correlation between each variable and it’s corresponding knockoff is</p>
@@ -203,7 +204,7 @@ quality_grid</code></pre>
 </div>
 <div id="knockoffs-for-large-grids" class="section level2">
 <h2>Knockoffs for large grids</h2>
-<p>For large grids, we can still generate knockoffs efficiently using the divid-and-conquer technique, which is implemented in the <code>ising_knockoff_slice</code> function. We demonstrate this technique here.</p>
+<p>For large grids, we can still generate knockoffs efficiently using the divid-and-conquer technique (Section 4.4 of the paper), which is implemented in the <code>ising_knockoff_slice</code> function. We demonstrate this technique here.</p>
 <p>First, we sample from the Ising model on a grid.</p>
 <pre class="r"><code># Simulation #parameters
 n = 100  #number of samples
@@ -225,8 +226,9 @@ for (i in 1:n) {
     Xk = rbind(Xk, as.vector(xk))
 }
 end = Sys.time()
-print(paste0(&quot;Average time per knockoff (seconds): &quot;, (end - start)/n))</code></pre>
-<pre><code>[1] &quot;Average time per knockoff (seconds): 0.187457671165466&quot;</code></pre>
+print(paste0(&quot;Average time per knockoff (seconds): &quot;, round((end - start)/n, 
+    digits = 3)))</code></pre>
+<pre><code>[1] &quot;Average time per knockoff (seconds): 0.194&quot;</code></pre>
 <pre class="r"><code>dim(Xk)</code></pre>
 <pre><code>[1] 100 400</code></pre>
 <p>We again compute the mean correlation between <span class="math inline">\(X_{j,k}\)</span> and <span class="math inline">\(\tilde{X}_{j,k}\)</span>:</p>

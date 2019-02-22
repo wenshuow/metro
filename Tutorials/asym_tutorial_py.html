@@ -11758,7 +11758,8 @@ $$
 where $\mu$ and $\sigma$ are chosen so that the variables are centered with unit variance, and then define
 $$
 X_1=Z_1, \quad X_{j+1}=\rho_j X_j + \sqrt{1-\rho_j^2}Z_{j+1} \ \text{ for } j=2,\dots,p.
-$$</p>
+$$
+Section 5.2.2 of the accompanying paper presents a large set of simulation results in this setting.</p>
 
 </div>
 </div>
@@ -11768,7 +11769,7 @@ $$</p>
 </div>
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h2 id="Multiple-try-Metropolis">Multiple-try Metropolis<a class="anchor-link" href="#Multiple-try-Metropolis">&#182;</a></h2><p>We demonstrate the Multiple-try Metropolis proposals below.</p>
+<h2 id="Multiple-try-Metropolis">Multiple-try Metropolis<a class="anchor-link" href="#Multiple-try-Metropolis">&#182;</a></h2><p>We demonstrate the Multiple-try Metropolis (Section 3.3 of the paper) proposals below.</p>
 
 </div>
 </div>
@@ -11781,8 +11782,7 @@ $$</p>
 <div class=" highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">math</span>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">scipy</span>
-<span class="kn">from</span> <span class="nn">cvxopt</span> <span class="k">import</span> <span class="n">matrix</span><span class="p">,</span> <span class="n">solvers</span>
-<span class="c1">#from pydsdp.dsdp5 import dsdp</span>
+<span class="kn">import</span> <span class="nn">time</span>
 
 <span class="o">%</span><span class="k">run</span> ../asymmetric/asym_core
 </pre></div>
@@ -11821,7 +11821,7 @@ $$</p>
 </div>
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<p>We first compute the proposal scaling for each variable. Recall that the recommended scaling for the proposal for variable $j$ is $\sqrt{(\Sigma^{-1})_{jj}}$.</p>
+<p>We first compute the proposal scaling for each variable. Recall that the recommended scaling for the proposal for variable $j$ is $\sqrt{(\Sigma^{-1})_{jj}}$ (Section 3.3 of the paper).</p>
 
 </div>
 </div>
@@ -11854,7 +11854,7 @@ $$</p>
 </div>
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<p>Next, we sample observations from the Markov Chain and generate knockoffs with the MTM technique.</p>
+<p>Next, we sample observations from the Markov Chain and generate knockoffs with the MTM technique using the <code>SCEP_MH_MC</code> function.</p>
 
 </div>
 </div>
@@ -11865,8 +11865,11 @@ $$</p>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="n">bigmatrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="n">numsamples</span><span class="p">,</span><span class="mi">2</span><span class="o">*</span><span class="n">p</span><span class="p">])</span> <span class="c1">#store simulation data</span>
+
+<span class="c1">#generate each observation and knockoff</span>
+<span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
 <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">numsamples</span><span class="p">):</span>
-    <span class="c1">#sample the Markov Chain</span>
+    <span class="c1">#sample one instance from the Markov Chain</span>
     <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">()</span> <span class="o">&gt;=</span> <span class="mf">0.5</span><span class="p">:</span>
             <span class="n">bigmatrix</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">normal</span><span class="p">())</span> <span class="o">-</span> <span class="n">asymean</span><span class="p">)</span> <span class="o">/</span> \
                 <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">variance</span><span class="p">)</span>
@@ -11886,9 +11889,14 @@ $$</p>
                 <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">1</span><span class="o">-</span> <span class="n">rhos</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="n">rhos</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">*</span> \
                 <span class="n">bigmatrix</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
     
-    <span class="c1">#generate a knockoff</span>
+    <span class="c1">#generate a knockoff for the observation</span>
     <span class="n">bigmatrix</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">p</span><span class="p">:(</span><span class="mi">2</span><span class="o">*</span><span class="n">p</span><span class="p">)]</span> <span class="o">=</span> <span class="n">SCEP_MH_MC</span><span class="p">(</span><span class="n">bigmatrix</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">0</span><span class="p">:</span><span class="n">p</span><span class="p">],</span> <span class="mf">0.999</span><span class="p">,</span> 
                                        <span class="n">quantile_x</span><span class="p">,</span> <span class="n">rhos</span><span class="p">)</span>
+    
+<span class="n">end</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Average time per observation + knockoff (seconds): &quot;</span> <span class="o">+</span> \
+      <span class="s1">&#39;</span><span class="si">%.3f</span><span class="s1">&#39;</span><span class="o">%</span><span class="p">((</span><span class="n">end</span> <span class="o">-</span> <span class="n">start</span><span class="p">)</span> <span class="o">/</span> <span class="n">numsamples</span><span class="p">))</span>    
     
 <span class="n">np</span><span class="o">.</span><span class="n">shape</span><span class="p">(</span><span class="n">bigmatrix</span><span class="p">)</span>
 </pre></div>
@@ -11900,6 +11908,13 @@ $$</p>
 <div class="output_wrapper">
 <div class="output">
 
+
+<div class="output_area"><div class="prompt"></div>
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>Average time per observation + knockoff (seconds): 0.147
+</pre>
+</div>
+</div>
 
 <div class="output_area"><div class="prompt output_prompt">Out[4]:</div>
 
@@ -11913,6 +11928,16 @@ $$</p>
 </div>
 </div>
 
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>We can evaluate the quality of these knocokffs by computing the average correlation between $X_{i,j}$ and $\tilde{X}_{i,j}$.</p>
+
+</div>
+</div>
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
@@ -11937,7 +11962,7 @@ $$</p>
 
 
 <div class="output_text output_subarea output_execute_result">
-<pre>0.6221907533995499</pre>
+<pre>0.6102721096798122</pre>
 </div>
 
 </div>
