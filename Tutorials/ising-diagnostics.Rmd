@@ -1,0 +1,342 @@
+---
+title: "Ising model knockoff diagnostics"
+author: "Stephen Bates and Wenshuo Wang"
+date: '`r Sys.Date()`'
+output:
+  html_document: default
+  pdf_document: default
+---
+
+## Summary
+
+This report examines various Ising model knockoff diagnostics to check the validity of the knockoffs and analyze the quality of the generated knockoffs. We have proved that the knockoffs we generate are valid, so the diagnostics are simply to verify the validity of the code and to ensure that numerics are behaving as expected. Furthermore, the following diagnostics give us a window into the quality of the knockoffs, i.e. the amount of contrast between $X$ and $\tilde{X}$. Higher contrast will lead to more power when knockoffs are used for variable selection.
+
+Recall that the PMF of the Ising model is given by
+$$
+P(X) = \frac{1}{Z(\beta_0)} e^{\beta_0 \sum_{(i,i^\prime) \in E} X_i X_{i^\prime}},
+$$
+ and in our case $i$ and $i^\prime$ are each coordinates in the $d \times d$ grid, $E$ is the set of edges of the grid, and each $X_i \in \{-1, 1\}$.  Section 5.2.3 of the accompanying paper presents simulation results in this setting.
+
+## Loading the data
+
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+library(tidyverse)
+library(latex2exp)
+```
+
+```{r cars}
+#simulation parameters
+n_samples = 10000
+k1 = 10 #dimension 1 of the grid
+k2 = 10 #dimension 2 of the grid
+beta_0 = .25
+niter = 5000
+```
+
+We load the data:
+
+* `r n_samples` samples
+* `r k1` $\times$ `r k2` grid
+* Ising parameter `r beta_0`
+
+Each sample contains and original grid $X$ and the sampled knockoff copy $\tilde{X}$.
+
+```{r}
+#load the cached simulation results
+file_name = paste0("data/ising-ko_k1-", k1,
+              "_k2-", k2,
+              "_n-", n_samples,
+              "_alpha-", beta_0,
+              "_niter-", niter)
+
+load(file = file_name)
+dat = out_array
+```
+
+```{r}
+#convert array to a data table
+plt_data = matrix(as.vector(out_array[,1,,]), byrow = FALSE, nrow = n_samples)
+plt_data = rbind(plt_data, matrix(as.vector(out_array[,2,,]), byrow = FALSE, nrow = n_samples))
+plt_data = data.frame(plt_data)
+plt_data$type = c(rep("original", n_samples), rep("ko", n_samples))
+colnames(plt_data) = c(as.character(1:(k1*k2)), "type") #index 1 is (1,1), 2 is (2,1) etc.
+
+#Tidy the data table. Add row, column indices.
+plt_dat2 = plt_data %>% gather(key = "cell", value = "value", as.character(1):as.character(k1*k2))
+plt_dat2 = plt_dat2 %>% mutate(i = ((as.integer(cell) - 1) %% k1) + 1) %>%
+  mutate(j = (((as.integer(cell) - 1) %/% k1) %% k2) + 1)
+plt_dat2$value = as.numeric(plt_dat2$value)
+
+head(plt_dat2)
+```
+
+#### Ising parameter interpretation
+
+To better understand how the parameter $\beta_0$ affects the dependence strength, we count how often a variable is equal to a neighbor. Specifically, when $\beta_0$ set to value `r beta_0`, the point in the middle of the grid takes the same value as it's right neighbor with probability:
+
+```{r}
+mid_i = k1 %/% 2
+mid_j = k2 %/% 2
+mean_match = mean(out_array[, 1, mid_i, mid_j] == out_array[, 1, mid_i, mid_j + 1])
+mean_match
+```
+
+## Check the joint distribution of (X, Xk)
+
+We now check to see that $X$ follows and Ising model and $(X, \tilde{X})$ forms a knockoff pair. We can validate this by checking that the means and covariances of $X$ and $\tilde{X}$ match, and that all of the covariances among true variables and knockoffs match appropriately.
+
+### Means
+
+#### Statistical test of means
+
+We first check that each coordinate is mean zero. We compute a 1-sample t-test that the mean of each coordinate of $(X, \tilde{X})$ is zero.
+
+```{r, echo=FALSE}
+mean_original = matrix(0, k1, k2)
+sd_original = matrix(0, k1, k2)
+p_original = matrix(0, k1, k2)
+mean_ko = matrix(0, k1, k2)
+sd_ko = matrix(0, k1, k2)
+p_ko = matrix(0, k1, k2)
+
+#compute means at each coordinate
+indices = 1:n_samples
+for(i in 1:k1) {
+  for(j in 1:k2) {
+    mean_original[i, j] = mean(out_array[indices, 1, i, j])
+    sd_original[i, j] = sd(out_array[indices, 1, i, j])
+    p_original[i, j] = t.test(out_array[indices, 1, i, j])$p.value
+    
+    mean_ko[i, j] = mean(out_array[indices, 2, i, j])
+    sd_ko[i, j] = sd(out_array[indices, 2, i, j])
+    p_ko[i, j] = t.test(out_array[indices, 2, i, j])$p.value
+  }
+}
+```
+
+```{r}
+# do a t-test to check that the means are each 0.
+p_vals = plt_dat2 %>% group_by(i, j, type) %>% 
+  summarize(p_val = t.test(value)$p.value)
+```
+
+We combine the p-values with Bonferroni.
+
+```{r}
+#bonferroni p-value that any of the original means are nonzero
+orig_pval = min(p_vals %>% filter(type == "original") %>% pull(p_val)) * k1 * k2
+orig_pval
+
+#bonferroni p-alue that any of the knockoff means are nonzero
+ko_pval = min(p_vals %>% filter(type == "ko") %>% pull(p_val)) * k1 * k2
+ko_pval
+```
+
+The Bonferroni adjusted p-value that all coordinates of $X$ are mean zero is `r orig_pval` and the Bonferroni adjusted p-value that all coordinates of $\tilde{X}$ are mean zero is `r ko_pval`, so there is no evidence that the means are deviating from zero.
+
+#### Visualizing the means
+
+We plot the 95% CI for the mean of each coordinate.
+
+```{r}
+mean_plot = ggplot(plt_dat2 %>% 
+              group_by(i, j, type) %>% 
+              summarize(mean = mean(value), spread = sd(value) / sqrt(n())), 
+            aes(x = type, ymax = mean + 2*spread, ymin = mean - 2*spread, color = type)) +
+  geom_errorbar() +
+  geom_hline(yintercept = 0) +
+  facet_grid(i ~ j) +
+  theme_bw() 
+
+mean_plot
+```
+
+Most of the 95% CIs cover 0, as expected. Of course, a handful of them do not, because we are performing such a large number of tests. We saw above that after correcting for multiple testing with Bonferroni, our results are consistent with all variables being mean zero.
+
+Note: marginal variance information is redundant with the means, since all of the random variables take values in $\{\pm 1\}$. There is no need to check marginal variances seperately.
+
+### Covariances
+
+We now check the covariances among $(X, \tilde{X})$.
+
+```{r}
+#compute covariance of each pair of variables
+cor_dat = data.frame(stringsAsFactors = FALSE)
+for(i in 1:k1) {
+  for(i1 in 1:k1) {
+    for(j in 1:k2) {
+      for(j1 in 1:k2) {
+        cor_dat = rbind(cor_dat, c("orig-orig",
+                                   abs(i - i1) + abs(j - j1), 
+                                   cor(dat[,1,i,j], dat[,1,i1,j1])), stringsAsFactors = FALSE)
+        cor_dat = rbind(cor_dat, c("ko-ko",
+                           abs(i - i1) + abs(j - j1), 
+                           cor(dat[,2,i,j], dat[,2,i1,j1])), stringsAsFactors = FALSE)
+        cor_dat = rbind(cor_dat, c("ko-orig",
+                   abs(i - i1) + abs(j - j1), 
+                   cor(dat[,1,i,j], dat[,2,i1,j1])), stringsAsFactors = FALSE)
+      }
+    }
+  }
+}
+colnames(cor_dat) = c("type", "distance", "cor")
+```
+
+#### Visualizing covariances
+
+We plot the covariances between pairs $(X_{i,j}, X_{i^\prime, j^\prime}), (\tilde{X}_{i,j}, X_{i^\prime, j^\prime})$, and $(\tilde{X}_{i,j}, \tilde{X}_{i^\prime, j^\prime})$ for various values of $i,j,i^\prime,j^\prime$.  For valid knockoff copies, the sample correlation for all three pairs will be identical.
+
+```{r}
+cor_plot = ggplot(cor_dat %>%
+                    transform(ham_distance = as.numeric(distance), correlation = as.numeric(cor)) %>%
+                    filter(ham_distance > 0) %>%
+                    group_by(type), 
+                  aes(x = ham_distance, y = correlation, color = type, group = interaction(ham_distance, type))) + 
+  geom_boxplot() + 
+  xlab("hamming distance") +
+  theme_bw()
+
+cor_plot
+```
+
+We that the correlations agree, as expected.
+
+#### Statistical check of equal covariances
+
+As an analytic check that the cross-covariances are behaving as expected, we choose a point in the center of the grid and its rightmost neighbor and form bootstrap CIs of the correlation coefficient
+for all three pairs $(X_{i,j}, X_{i^\prime, j^\prime}), (\tilde{X}_{i,j}, X_{i^\prime, j^\prime})$, and $(\tilde{X}_{i,j}, \tilde{X}_{i^\prime, j^\prime})$. We then check that each pair of the three CIs overlap.
+
+```{r}
+mid_i = k1 %/% 2
+mid_j = k2 %/% 2
+
+cor_orig = cor(dat[, 1, mid_i, mid_j], dat[, 1, mid_i + 1, mid_j])
+cor_ko = cor(dat[, 2, mid_i, mid_j], dat[, 2, mid_i + 1, mid_j])
+cor_ko_orig= cor(dat[, 1, mid_i, mid_j], dat[, 2, mid_i + 1, mid_j])
+
+boot_cors_orig = c()
+boot_cors_ko = c()
+boot_cors_ko_orig = c()
+
+B = 1000
+for(i in 1:B) {
+  boot_indices = sample(n_samples, n_samples, replace = TRUE)
+  boot_cors_orig = c(boot_cors_orig, cor(dat[boot_indices, 1, mid_i, mid_j], dat[boot_indices, 1, mid_i + 1, mid_j]))
+  boot_cors_ko = c(boot_cors_ko, cor(dat[boot_indices, 2, mid_i, mid_j], dat[boot_indices, 2, mid_i + 1, mid_j]))
+  boot_cors_ko_orig = c(boot_cors_ko_orig, cor(dat[boot_indices, 1, mid_i, mid_j], dat[boot_indices, 2, mid_i + 1, mid_j]))
+}
+
+## Original variable, ko variable overlap
+(quantile(boot_cors_orig, .025) <= quantile(boot_cors_ko, .975)) && (quantile(boot_cors_ko, .025) <= quantile(boot_cors_orig, .975))
+
+# Original variables, knockoff-original variable overlap
+(quantile(boot_cors_orig, .025) <= quantile(boot_cors_ko_orig, .975)) && (quantile(boot_cors_orig, .025) <= quantile(boot_cors_ko_orig, .975))
+
+# Knockoff variables, knockoff-original variable overlap
+(quantile(boot_cors_ko, .025) <= quantile(boot_cors_ko_orig, .975)) && (quantile(boot_cors_ko, .025) <= quantile(boot_cors_ko_orig, .975))
+```
+
+## Assessing knockoff quality
+
+We now asses the quality of the knockoffs, i.e. the ammount of contrast between $X$ and $\tilde{X}$.
+
+#### Using elementwise knockoffs as a lower bound
+
+As a lower bound for quality, we also consider elementwise knockoffs: i.e. we sample $\tilde{X_{ij}}^\prime \sim X_{ij} | X_{-ij}$ for all coordinates $(i,j)$. For a single coordinate, these are better than the best knockoffs in the sense that each coordinate of $\tilde{X_{ij}}^\prime$ has minimal conditional information with $X_{ij}$ given $X_{-ij}$. Achieving this level of quality for each coordinate is in general not possible.
+
+### Mean correlation
+
+We use the mean absolute correlation (MAC) of $(X_{ij}, \tilde{X}_{ij})$ as an metric of overall knockoff quality. 
+
+```{r}
+cors = data.frame(stringsAsFactors = FALSE)
+for(i in 1:k1) {
+  for(j in 1:k2) {
+    cors = rbind(cors, c("knockoff", i, j, cor(dat[, 1, i, j], dat[, 2, i, j])), stringsAsFactors = FALSE)
+    cors = rbind(cors, c("marginal", i, j, cor(dat[, 1, i, j], dat[, 3, i, j])), stringsAsFactors = FALSE)
+  }
+}
+colnames(cors) = c("type", "i", "j", "ko_orig_corr")
+cors$ko_orig_corr = as.numeric(cors$ko_orig_corr)
+cors$i = as.numeric(cors$i)
+cors$j = as.numeric(cors$j)
+cors = cors %>% 
+  mutate(order = k1 * (i - 1) + j)
+
+knockoff_mean_cor = mean(abs(cors %>% filter(type == "knockoff") %>% pull(ko_orig_corr))) # knockoff quality
+elem_mean_cor = mean(abs(cors %>% filter(type == "marginal") %>% pull(ko_orig_corr))) # lower bound (conditional independence test)
+
+knockoff_mean_cor
+elem_mean_cor
+```
+
+The knockoffs have mean correlation `r knockoff_mean_cor` and the elementwise knockoffs have mean correlation `r elem_mean_cor`.
+
+```{r}
+quality_plot = ggplot(cors %>% filter(type == "knockoff"), aes(x = ko_orig_corr)) + 
+  geom_histogram() +
+  theme_bw() +
+  xlab( TeX("cor($X_{ij}$, $\tilde{X}_{ij})$)"))
+
+quality_plot
+```
+
+### Quality by coordinate
+
+We now look at the correlation in the correlations of $(X_{ij}, \tilde{X}_{ij})$ by coordinate. Note thate the corner and edge coordinates are less constrained, so knockoff quality will typically be higher for these coordinates.
+
+```{r}
+quality_grid = ggplot(cors, aes(x = i, y = j, fill = ko_orig_corr)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient() + 
+  scale_y_reverse() + 
+  coord_fixed(ratio = 1) + 
+  labs(fill = TeX("cor($X_{ij}$, $\tilde{X}_{ij})$)")) +
+  theme_bw()
+
+quality_grid
+```
+
+We next compare the correlations of $(X_{ij}, \tilde{X}_{ij})$ compared to the lower bound given by $(X_{ij}, \tilde{X}^\prime_{ij})$ for each coordinate. The difference in these two correlations is a bound on the sub-optimality at each coordinate.
+
+```{r}
+optimality_grid = ggplot(cors %>% spread(key = type, value = ko_orig_corr),
+                          aes(x = i, y = j, fill = knockoff - marginal)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient2() + 
+  scale_y_reverse() + 
+  coord_fixed(ratio = 1) +
+  labs(fill = "correlation sub-optimality bound") +
+  theme_bw()
+
+optimality_grid
+```
+
+### Quality by sample ordering
+
+We now look at the quality of the knockoffs based on the order in which they were sampled. Colors indicate the number of neighbors of each point. Solid lines represent the average correlation for $(X_{ij}, \tilde{X}_{ij})$, broken down by the number of neighbors each coordinate has in the grid (corners are 2, edges 3, middle points 4). Dashed lines represent the average correlation for $(X_{ij}, \tilde{X}^\prime_{ij})$, a lower bound for quality. Roughly, we expect that the knockoffs sampled earlier will be of higher quality, since the distribution of the earlier variables is less constrained.
+
+```{r}
+#compute the order of variable sampling
+order_dat = cors %>%
+              mutate(order = k1 * (i - 1) + j) %>% 
+              mutate(num_neighbors = 4 - (i == 1) - (i == k1) - (j == 1) - (j == k2))
+grouped_order = order_dat %>% 
+  group_by(num_neighbors, type) %>% 
+  summarize(mean_cor = mean(abs(ko_orig_corr)))
+grouped_order$type[grouped_order$type == "marginal"] = "lower_bound_elemwise"
+
+#plot the quality versus ordering
+quality_ordering = ggplot(order_dat %>% filter(type == "knockoff"),
+                          aes(x = order, y = ko_orig_corr, color = as.factor(num_neighbors))) +
+  geom_point() +
+  labs(color = "number of neighbors") +
+  xlab("sampling order") +
+  ylab(TeX("cor($X_{ij}$, $\tilde{X}_{ij})$)")) +
+  geom_hline(data = grouped_order, aes(yintercept = as.numeric(mean_cor), color = as.factor(num_neighbors), linetype = as.factor(type))) +
+  labs(linetype = "line type") +
+  theme_bw() 
+
+quality_ordering
+```
+
