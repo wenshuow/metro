@@ -2,6 +2,9 @@
 title: "Ising Model Knockoffs Tutorial"
 author: "Stephen Bates and Wenshuo Wang"
 date: "`r Sys.Date()`"
+output:
+  html_document:
+    df_print: paged
 ---
 
 ```{r knitr_init, echo=FALSE, cache=FALSE}
@@ -36,11 +39,8 @@ library(reshape2)
 library(knockoff)
 library(bayess)
 library(latex2exp)
-source("../Ising/ising.r")
-
-library(doMC)
-n_cores = 3
-registerDoMC(cores = n_cores)
+library(foreach)
+source("../Ising/ising.r") #load the ising knockoff functions
 ```
 
 ```{r}
@@ -72,7 +72,7 @@ start = Sys.time()
 set.seed(200)
 Xk = c() # store the sampled knockoffs
 #create knockoffs for each observation
-Xk = foreach(i=1:n, .combine='rbind') %dopar% {
+Xk = foreach(i=1:n, .combine='rbind') %do% {
   x = matrix(X[i, ], nrow = d, ncol = d)
   xk = ising_knockoff(x, d, d, beta_0) #sample one knockoff
   as.vector(xk)
@@ -92,13 +92,30 @@ for(j in 1:(d*d)) {
 }
 mean(cors)
 ```
+
 ### Diagnostics: checking means and covariances
 
+As a basic diagnostic, we check that each coordinate is mean zero and the the empirical covariance matrices of $X$ and $\tilde{X}$ are close. As the number of samples increases, the empircal covariance of $X$ and $\tilde{X}$ will converge to the same population covariance.
+
 ```{r}
+max(abs(colMeans(X))) #find the coordinate with mean farthest away from 0
+max(abs(colMeans(Xk))) #find the coordinate with mean farthest away from 0
+
+S = cor(X) #correlation matrix of X
+Sk = cor(Xk) #correlation matrix of Xk
+max(abs(S - Sk)) #largest difference in the correlation matrix.
+```
+
+We can visualize the difference in the empirical covariance matrices of $X$ and $\tilde{X}$ with a heatmap.
+
+```{r}
+#visualize the difference in the empirical covariance
 library(ggcorrplot)
-ggcorrplot(cor(X) - cor(Xk), ggtheme = ggplot2::theme_bw, legend.title = "Corr diff") + 
+ggcorrplot(cor(X) - cor(Xk), ggtheme = ggplot2::theme_bw, legend.title = "Corr diff", title = "Difference in correlation structure") + 
   scale_y_reverse()
 ```
+
+We see that the difference in the empirical correlation matrix of $X$ and the empirical correlation matrix of $\tilde{X}$ are small, as expected, since $X$ and $\tilde{X}$ come from the same distribution.
 
 ### Quality across coordinates.
 
@@ -126,7 +143,7 @@ cors = cors %>%
 #plot the knockoff quality at each coordinate
 quality_grid = ggplot(cors, aes(x = i, y = j, fill = ko_orig_corr)) +
   geom_tile(color = "white") +
-  scale_fill_continuous(high = "#000000", low = "#56B1F7", limits = c(.3, .8)) + 
+  scale_fill_continuous(high = "#000000", low = "#56B1F7", limits = c(.1, .4)) + 
   scale_y_reverse() + 
   coord_equal() +
   labs(fill = "cor") +
@@ -154,9 +171,9 @@ First, we sample from the Ising model on a grid.
 
 ```{r}
 # Simulation #parameters
-n = 100 #number of samples
+n = 200 #number of samples
 d = 20 #20x20 grid
-beta_0 = .5 #interaction strength
+beta_0 = .25 #interaction strength
 width = 3 #divide-and-conquer width
 ```
 
@@ -170,13 +187,13 @@ dim(X)
 Next, we sample the knockoffs using the divide-and-conquer technique.
 
 ```{r}
+#sample each knockoff
 set.seed(100)
 start = Sys.time()
-Xk = c()
-for(i in 1:n) {
+Xk = foreach(i=1:n, .combine='rbind') %do% {
   x = matrix(X[i, ], nrow = d, ncol = d)
   xk = ising_knockoff_slice(x, d, d, beta_0, max_width = width)
-  Xk = rbind(Xk, as.vector(xk))
+  as.vector(xk)
 }
 end = Sys.time()
 print(paste0("Average time per knockoff (seconds): ", round((end - start) / n, digits = 3)))
@@ -220,7 +237,7 @@ cors = cors %>%
 #plot the knockoff quality at each coordinate
 quality_grid = ggplot(cors, aes(x = i, y = j, fill = ko_orig_corr)) +
   geom_tile(color = "white") +
-  scale_fill_continuous(high = "#000000", low = "#56B1F7", limits = c(.3, .95)) + 
+  scale_fill_continuous(high = "#000000", low = "#56B1F7", limits = c(0, .7)) + 
   scale_y_reverse() + 
   coord_equal() +
   labs(fill = "cor") +
@@ -228,7 +245,7 @@ quality_grid = ggplot(cors, aes(x = i, y = j, fill = ko_orig_corr)) +
   theme(text = element_text(size = 10)) +
   xlab("j") + 
   ylab("k") + 
-labs(title = TeX("$20 \\times 20$ grid, $\\beta_0 = 0.5$")) +
+labs(title = TeX("$20 \\times 20$ grid, $\\beta_0 = 0.25$")) +
   coord_fixed() + 
   theme(plot.title = element_text(size=10)) +
   theme(plot.title = element_text(hjust = 0.5)) +
