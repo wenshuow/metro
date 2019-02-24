@@ -182,6 +182,23 @@ for(i in 1:k1) {
 colnames(cor_dat) = c("type", "distance", "cor")
 ```
 
+#### Marginal covariance matrices
+
+We first verify that $X$ and $\tilde{X}$ have the same marginal covariance matrix.
+
+```{r}
+library(reticulate)
+#convert to n x p matrix format
+X = array_reshape(dat[,1,,], order = "C", dim = c(n_samples, 100))
+Xk = array_reshape(dat[,2,,], order = "C", dim = c(n_samples, 100))
+S = cor(X)
+Sk = cor(Xk)
+
+max(abs(S - Sk)) #the largest elementwise difference
+```
+
+We find that the marginal covariance matrices are close. The fluctions of the entries of the covariance matrix should be about $\sqrt{2 \log(p * (p - 1)) / n} = $ `r 2*sqrt(p*(p-1) / n)`, so the deviation from 0 is not larger than we expect due to random fluctuations in the empirical covariance matrices.
+
 #### Visualizing covariances
 
 We plot the covariances between pairs $(X_{i,j}, X_{i^\prime, j^\prime}), (\tilde{X}_{i,j}, X_{i^\prime, j^\prime})$, and $(\tilde{X}_{i,j}, \tilde{X}_{i^\prime, j^\prime})$ for various values of $i,j,i^\prime,j^\prime$.  For valid knockoff copies, the sample correlation for all three pairs will be identical.
@@ -197,29 +214,6 @@ cor_plot = ggplot(cor_dat %>%
   theme_bw()
 
 cor_plot
-```
-
-We see that the correlations agree, as expected.
-
-
-```{r}
-S1 = cor(dat[,1,1,1:10])
-S1k = cor(dat[,2,1,1:10])
-
-max(S1 - S1k)
-min(S1 - S1k)
-```
-
-```{r}
-library(reticulate)
-X = array_reshape(dat[,1,,], order = "C", dim = c(n_samples, 100))
-Xk = array_reshape(dat[,2,,], order = "C", dim = c(n_samples, 100))
-
-S = cor(X)
-Sk = cor(Xk)
-
-max(S - Sk)
-min(S - Sk)
 ```
 
 #### Statistical check of equal covariances

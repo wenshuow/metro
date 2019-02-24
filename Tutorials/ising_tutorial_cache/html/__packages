@@ -17,4 +17,6 @@ gplots
 combinat
 bayess
 latex2exp
+foreach
+ggcorrplot
 bindrcpp
