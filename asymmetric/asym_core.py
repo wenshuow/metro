@@ -233,9 +233,10 @@ def sdp_solver(cormatrix):
 
 
 # find the parameters of the proposal dist
-def compute_proposals(p, rhos):
+def compute_proposals(rhos):
+  p = np.shape(rhos)[0]
   cormatrix = ar_cov_matrix(rhos)
-  s_sdp = sdp_solvercormatrix
+  s_sdp = sdp_solver(cormatrix)
 
   #TODO: put code here to find the parameters for the proposal dist at each step
 
@@ -243,7 +244,7 @@ def compute_proposals(p, rhos):
 #compute a knockoff for x_obs
 def SCEP_MH_COVSCEP_MH_MC(x_obs, gamma, rhos) #add more parameters here
   
-  #TODO: comput the knockoffs
+  #TODO: compute the knockoffs
 
 
 #### Wenshuo: This is the code from the original script
