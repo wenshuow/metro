@@ -199,7 +199,28 @@ cor_plot = ggplot(cor_dat %>%
 cor_plot
 ```
 
-We that the correlations agree, as expected.
+We see that the correlations agree, as expected.
+
+
+```{r}
+S1 = cor(dat[,1,1,1:10])
+S1k = cor(dat[,2,1,1:10])
+
+max(S1 - S1k)
+min(S1 - S1k)
+```
+
+```{r}
+library(reticulate)
+X = array_reshape(dat[,1,,], order = "C", dim = c(n_samples, 100))
+Xk = array_reshape(dat[,2,,], order = "C", dim = c(n_samples, 100))
+
+S = cor(X)
+Sk = cor(Xk)
+
+max(S - Sk)
+min(S - Sk)
+```
 
 #### Statistical check of equal covariances
 
