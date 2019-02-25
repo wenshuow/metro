@@ -146,7 +146,7 @@ We see that the first and last knockoff have higher quality, since these variabl
 
 #### Diagnostics: checking means and covariances
 
-As a basic diagnostic, we check that each coordinate is mean zero and the the empirical covariance matrices of $X$ and $\tilde{X}$ are close. As the number of samples increases, the empircal covariance of $X$ and $\tilde{X}$ will converge to the same population covariance.
+As a basic diagnostic, we check that each coordinate is mean zero and the the empirical covariance matrices of $X$ and $\tilde{X}$ are close. As the number of samples increases, the empirical covariance of $X$ and $\tilde{X}$ will converge to the same population covariance.
 
 ```{r}
 max(abs(colMeans(X))) #find the coordinate with mean farthest away from 0
@@ -234,7 +234,7 @@ We see that the first and last knockoff have higher quality, since these variabl
 
 #### Diagnostics: checking means and covariances
 
-As a basic diagnostic, we check that each coordinate is mean zero and the the empirical covariance matrices of $X$ and $\tilde{X}$ are close. As the number of samples increases, the empircal covariance of $X$ and $\tilde{X}$ will converge to the same population covariance.
+As a basic diagnostic, we check that each coordinate is mean zero and the the empirical covariance matrices of $X$ and $\tilde{X}$ are close. As the number of samples increases, the empirical covariance of $X$ and $\tilde{X}$ will converge to the same population covariance.
 
 ```{r}
 max(abs(colMeans(X))) #find the coordinate with mean farthest away from 0

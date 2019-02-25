@@ -1,8 +1,8 @@
 import math
 import numpy as np
 from scipy.stats import t
-#from pydsdp.dsdp5 import dsdp
-# see https://pypi.org/project/scikit-dsdp/#files
+from scipy.stats import multivariate_normal
+from cvxopt import matrix, solvers
 
 def log(x):
     if x==0:
@@ -340,4 +340,165 @@ def SCEP_MH_MC_COV(x_obs, gamma, mu_vector, cond_coeff, cond_means_coeff, cond_v
           for ii in range(j+2,p):
               parallel_cond_density_log[ii] = cond_density_log
   tildexs.append(rej)
+  return(tildexs)
+
+
+#generates the AR covariance matrix from a vector of rhos
+def ar_cov_matrix(rhos):
+    p = np.shape(rhos)[0] + 1
+    cormatrix = np.ones([p,p])
+    for i in range(p-1):
+        for j in range(i+1,p):
+            for k in range(i,j):
+                cormatrix[i,j] = cormatrix[i,j]*rhos[k]
+            cormatrix[j,i] = cormatrix[i,j]
+
+    return cormatrix
+
+# solves the SDP
+def sdp_solver(cormatrix):
+    p = np.shape(cormatrix)[0]
+    c = -np.ones(p)
+    
+    G1 = np.zeros((p, p*p))
+    for i in range(p):
+        G1[i, i*p + i] = 1.0
+
+    c = matrix(c)
+    Gs = [matrix(G1.T)] + [matrix(G1.T)]
+    hs = [matrix(2 * cormatrix)] + [matrix(np.identity(p))]
+    G0 = matrix(-(np.identity(p)))
+    h0 = matrix(np.zeros(p))
+
+    sol = solvers.sdp(c, G0, h0, Gs, hs)
+    return np.array(sol['x'])
+
+
+# find the parameters of the proposal dist
+def compute_proposals(rhos):
+    p = np.shape(rhos)[0] + 1
+    cormatrix = ar_cov_matrix(rhos)
+    s_sdp = sdp_solver(cormatrix)
+    print(np.mean(1-s_sdp))
+    matrix_diag = np.reshape(s_sdp,p)
+    Cov_matrix = np.matrix.copy(cormatrix)
+    Cov_matrix_off = np.matrix.copy(Cov_matrix)
+    for i in range(p):
+        Cov_matrix_off[i,i] = Cov_matrix[i,i] - matrix_diag[i]
+    correlations = [0]*(p-1)
+    for i in range(p-1):
+      correlations[i] = Cov_matrix[i,i+1]/math.sqrt(Cov_matrix[i,i]*Cov_matrix[i+1,i+1])
+    inverse_all = np.zeros([2*p-1,2*p-1])
+    inverse_all[0,0] = (1/(1-correlations[0]**2))/Cov_matrix[0,0]
+    inverse_all[0,1] = (-correlations[0]/(1-correlations[0]**2))/math.sqrt(Cov_matrix[0,0]*Cov_matrix[1,1])
+    inverse_all[p-1,p-1] = (1/(1-correlations[p-2]**2))/Cov_matrix[p-1,p-1]
+    inverse_all[p-1,p-2] = (-correlations[p-2]/(1-correlations[p-2]**2))/math.sqrt(Cov_matrix[p-1,p-1]*Cov_matrix[p-2,p-2])
+    if p>=3:
+        for i in range(1,p-1):
+            inverse_all[i,i-1] = (-correlations[i-1]/(1-correlations[i-1]**2))/math.sqrt(Cov_matrix[i,i]*Cov_matrix[i-1,i-1])
+            inverse_all[i,i] = ((1-correlations[i-1]**2*correlations[i]**2)/((1-correlations[i-1]**2)*(1-correlations[i]**2)))/Cov_matrix[i,i]
+            inverse_all[i,i+1] = (-correlations[i]/(1-correlations[i]**2))/math.sqrt(Cov_matrix[i,i]*Cov_matrix[i+1,i+1])
+        
+    temp_mat = Cov_matrix_off @ inverse_all[0:p,0:p]
+    prop_mat = temp_mat
+    upper_matrix = np.concatenate((Cov_matrix, Cov_matrix_off), axis = 1)
+    lower_matrix = np.concatenate((Cov_matrix_off, Cov_matrix), axis = 1)
+    whole_matrix = np.concatenate((upper_matrix, lower_matrix), axis = 0)
+    cond_means_coeff = []
+    cond_vars = [0]*p
+    temp_means_coeff = np.reshape(whole_matrix[p,0:p],[1,p]) @ inverse_all[0:p,0:p]
+    cond_means_coeff.append(temp_means_coeff)
+    cond_vars[0] = (Cov_matrix[0,0] - cond_means_coeff[0] @ np.reshape(whole_matrix[p,0:p],[p,1]))[0,0]
+    for il in range(1,p):
+        temp_var = Cov_matrix[il-1]
+        temp_id = np.zeros([p+il-1,p+il-1])
+        temp_row = np.zeros([p+il-1,p+il-1])
+        temp_id[il-1,il-1] = 1
+        temp_row[il-1,:] = matrix_diag[il-1] * inverse_all[il-1,0:(p+il-1)]
+        temp_col = np.matrix.copy(np.transpose(temp_row))
+        temp_fourth = matrix_diag[il-1]**2 * np.reshape(inverse_all[il-1,0:(p+il-1)],[p+il-1,1]) @ np.reshape(inverse_all[il-1,0:(p+il-1)],[1,p+il-1])
+        temp_numerator = temp_id - temp_row - temp_col + temp_fourth
+        temp_denominator = -matrix_diag[il-1] * (2-matrix_diag[il-1]*inverse_all[il-1,il-1])
+        temp_remaining = -matrix_diag[il-1]*inverse_all[il-1,0:(p+il-1)]
+        temp_remaining[il-1] = 1 + temp_remaining[il-1]
+        inverse_all[0:(p+il-1),0:(p+il-1)] = inverse_all[0:(p+il-1),0:(p+il-1)] - (1/temp_denominator)*temp_numerator
+        inverse_all[p+il-1,p+il-1] = -1/temp_denominator
+        inverse_all[p+il-1,0:(p+il-1)] = 1/temp_denominator * temp_remaining
+        inverse_all[0:(p+il-1),p+il-1] = np.matrix.copy(inverse_all[p+il-1,0:(p+il-1)])
+        temp_means_coeff = np.reshape(whole_matrix[p+il,0:(p+il)],[1,p+il]) @ inverse_all[0:(p+il),0:(p+il)]
+        cond_means_coeff.append(temp_means_coeff)
+        cond_vars[il] = (Cov_matrix[il,il] - cond_means_coeff[il] @ np.reshape(whole_matrix[p+il,0:(p+il)],[p+il,1]))[0,0]
+        cond_vars = np.clip(cond_vars, 0.000000001, 1)
+    return([Cov_matrix, matrix_diag, prop_mat,cond_means_coeff,cond_vars])
+
+
+
+def SCEP_MH_COV(x_obs, gamma, mu_vector, df_t, rhos, param_list):
+  Cov_matrix, matrix_diag, cond_coeff, cond_means_coeff, cond_vars = param_list
+  p = len(x_obs)
+  Cov_matrix_off = np.matrix.copy(Cov_matrix)
+  for i in range(p):
+      Cov_matrix_off[i,i] = Cov_matrix[i,i] - matrix_diag[i]
+  rej = 0
+  tildexs = []
+  cond_mean = mu_vector + np.reshape(cond_coeff @ np.reshape(x_obs-mu_vector,[p,1]),p)
+  cond_cov = Cov_matrix - cond_coeff @ Cov_matrix_off
+  ws = multivariate_normal.rvs(cond_mean,cond_cov)
+  def q_prop_pdf_log(num_j, vec_j, prop_j):
+      num_j = num_j + 1
+      if num_j!=(len(vec_j)-p+1):
+          return("error")
+      temp_mean = (mu_vector[num_j-1] + cond_means_coeff[num_j-1] @ np.reshape(vec_j-np.concatenate([mu_vector,mu_vector[0:(num_j-1)]]),[len(vec_j),1]))[0,0]
+      return(-(prop_j-temp_mean)**2/(2*cond_vars[num_j-1])-0.5*math.log(2*math.pi*cond_vars[num_j-1]))
+  parallel_chains = np.reshape(x_obs.tolist()*p,[p,p])
+  for j in range(p):
+    parallel_chains[j,j] = ws[j]
+  marg_density_log = p_marginal_log(df_t,rhos,p,x_obs)
+  parallel_marg_density_log = [0]*p
+  for j in range(p):
+    if j==0:
+        parallel_marg_density_log[j] = marg_density_log + p_marginal_trans_log(df_t, rhos, p, 1,ws[0],0) + p_marginal_trans_log(df_t, rhos, p, 2,x_obs[1],ws[0]) - p_marginal_trans_log(df_t, rhos, p, 1,x_obs[0],0) - p_marginal_trans_log(df_t, rhos, p, 2,x_obs[1],x_obs[0])
+    if j==p-1:
+        parallel_marg_density_log[j] = marg_density_log + p_marginal_trans_log(df_t, rhos, p, p,ws[p-1],x_obs[p-2]) - p_marginal_trans_log(df_t, rhos, p, p,x_obs[p-1],x_obs[p-2])
+    if j>0 and j<p-1:
+        parallel_marg_density_log[j] = marg_density_log + p_marginal_trans_log(df_t, rhos, p, j+1,ws[j],x_obs[j-1]) + p_marginal_trans_log(df_t, rhos, p, j+2,x_obs[j+1],ws[j]) - p_marginal_trans_log(df_t, rhos, p, j+1,x_obs[j],x_obs[j-1]) - p_marginal_trans_log(df_t, rhos, p, j+2,x_obs[j+1],x_obs[j])
+  cond_density_log = 0
+  parallel_cond_density_log = [0]*p
+  for j in range(p):
+    true_vec = np.concatenate([x_obs,ws[0:j]])
+    alter_vec = np.concatenate([x_obs,ws[0:j]])
+    alter_vec[j] = ws[j]
+    acc_ratio_log = q_prop_pdf_log(j, alter_vec, x_obs[j]) + parallel_marg_density_log[j] + parallel_cond_density_log[j] - (marg_density_log + cond_density_log + q_prop_pdf_log(j, true_vec, ws[j]))
+    if math.log(np.random.uniform())<=acc_ratio_log + math.log(gamma):
+        tildexs.append(ws[j])
+        cond_density_log = cond_density_log + q_prop_pdf_log(j, true_vec, ws[j]) + log(gamma) + min(0,acc_ratio_log)
+        if j+2<=p:
+            true_vec_j = np.concatenate([parallel_chains[j+1,:], ws[0:j]])
+            alter_vec_j = np.concatenate([parallel_chains[j+1,:], ws[0:j]])
+            alter_vec_j[j] = ws[j]
+            j_acc_ratio_log = q_prop_pdf_log(j, alter_vec_j, x_obs[j]) + parallel_cond_density_log[j] + parallel_marg_density_log[j] + p_marginal_trans_log(df_t, rhos, p, j+2,ws[j+1],ws[j]) - p_marginal_trans_log(df_t, rhos, p, j+2,x_obs[j+1],ws[j])
+            if j+3<=p:
+                j_acc_ratio_log = j_acc_ratio_log + p_marginal_trans_log(df_t, rhos, p, j+3,x_obs[j+2],ws[j+1]) - p_marginal_trans_log(df_t, rhos, p, j+3,x_obs[j+2],x_obs[j+1])
+            j_acc_ratio_log = j_acc_ratio_log - (parallel_cond_density_log[j+1] + parallel_marg_density_log[j+1] + q_prop_pdf_log(j, true_vec_j, ws[j]))
+            parallel_cond_density_log[j+1] = parallel_cond_density_log[j+1] + q_prop_pdf_log(j, true_vec_j, ws[j]) + log(gamma) + min(0,j_acc_ratio_log)
+        if j+3<=p:
+            for ii in range(j+2,p):
+                parallel_cond_density_log[ii] = cond_density_log
+    else:
+      rej = rej + 1
+      tildexs.append(x_obs[j])
+      cond_density_log = cond_density_log + q_prop_pdf_log(j, true_vec, ws[j]) + log(1-gamma*min(1,math.exp(acc_ratio_log)))
+      if j+2<=p:
+          true_vec_j = np.concatenate([parallel_chains[j+1,:], ws[0:j]])
+          alter_vec_j = np.concatenate([parallel_chains[j+1,:], ws[0:j]])
+          alter_vec_j[j] = ws[j]
+          j_acc_ratio_log = q_prop_pdf_log(j, alter_vec_j, x_obs[j]) + parallel_cond_density_log[j] + parallel_marg_density_log[j] + p_marginal_trans_log(df_t, rhos, p, j+2,ws[j+1],ws[j]) - p_marginal_trans_log(df_t, rhos, p, j+2,x_obs[j+1],ws[j])
+          if j+3<=p:
+              j_acc_ratio_log = j_acc_ratio_log + p_marginal_trans_log(df_t, rhos, p, j+3,x_obs[j+2],ws[j+1]) - p_marginal_trans_log(df_t, rhos, p, j+3,x_obs[j+2],x_obs[j+1])
+          j_acc_ratio_log = j_acc_ratio_log - (parallel_cond_density_log[j+1] + parallel_marg_density_log[j+1] + q_prop_pdf_log(j, true_vec_j, ws[j]))
+          parallel_cond_density_log[j+1] = parallel_cond_density_log[j+1] + q_prop_pdf_log(j, true_vec_j, ws[j]) + log(1-gamma*min(1,math.exp(j_acc_ratio_log)))
+      if j+3<=p:
+          for ii in range(j+2,p):
+              parallel_cond_density_log[ii] = cond_density_log
+  #tildexs.append(rej)
   return(tildexs)

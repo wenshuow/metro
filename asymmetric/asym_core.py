@@ -285,90 +285,8 @@ def compute_proposals(rhos):
         cond_vars[il] = (Cov_matrix[il,il] - cond_means_coeff[il] @ np.reshape(whole_matrix[p+il,0:(p+il)],[p+il,1]))[0,0]
         cond_vars = np.clip(cond_vars, 0.000000001, 1)
     return([Cov_matrix, matrix_diag, prop_mat,cond_means_coeff,cond_vars])
-  #TODO: put code here to find the parameters for the proposal dist at each step
 
 
-#compute a knockoff for x_obs
-#def SCEP_MH_COVSCEP_MH_MC(x_obs, gamma, rhos) #add more parameters here
-  
-  #TODO: compute the knockoffs
-
-
-#### Wenshuo: This is the code from the original script
-# find SDP
-#G = cormatrix
-#Cl1 = np.zeros([1,p*p])
-## Al1 = -np.diag(np.ones([p]))
-#Cl2 = np.reshape(np.diag(np.ones([p])),[1,p*p])
-## Al2 = np.diag(np.ones([p]))
-#d_As = np.reshape(np.diag(np.ones([p])),[p*p])
-#As = np.diag(d_As)
-#As = As[np.where(np.sum(As,axis=1)>0),:][0,:,:]
-#Al1 = -As.copy()
-#Al2 = As.copy()
-#Cs = np.reshape(2*G,[1,p*p])
-#A = np.concatenate([Al1,Al2,As],axis=1)
-#C = np.transpose(np.concatenate([Cl1,Cl2,Cs],axis=1))
-#K = {}
-#K['s'] = [p,p,p]
-## K['l'] = 2*p
-#b = np.ones([p,1])
-#A = np.asmatrix(A)
-#c = np.asmatrix(C)
-#b = np.asmatrix(b)
-#result = dsdp(A, b, c, K)
-#d_sdp = result['y'] # use SDP for diag(s); other options include ASDP, equicorrelated, etc.
-#
-## starting to calculate the parameters for covariance-guided proposals
-#Cov_matrix = np.matrix.copy(cormatrix)
-#matrix_diag = d_sdp
-#Cov_matrix_off = np.matrix.copy(Cov_matrix)
-#for i in range(p):
-#    Cov_matrix_off[i,i] = Cov_matrix[i,i] - matrix_diag[i]
-#correlations = [0]*(p-1)
-#for i in range(p-1):
-#  correlations[i] = Cov_matrix[i,i+1]/math.sqrt(Cov_matrix[i,i]*Cov_matrix[i+1,i+1])
-#inverse_all = np.zeros([2*p-1,2*p-1])
-#inverse_all[0,0] = (1/(1-correlations[0]**2))/Cov_matrix[0,0]
-#inverse_all[0,1] = (-correlations[0]/(1-correlations[0]**2))/math.sqrt(Cov_matrix[0,0]*Cov_matrix[1,1])
-#inverse_all[p-1,p-1] = (1/(1-correlations[p-2]**2))/Cov_matrix[p-1,p-1]
-#inverse_all[p-1,p-2] = (-correlations[p-2]/(1-correlations[p-2]**2))/math.sqrt(Cov_matrix[p-1,p-1]*Cov_matrix[p-2,p-2])
-#if p>=3:
-#    for i in range(1,p-1):
-#        inverse_all[i,i-1] = (-correlations[i-1]/(1-correlations[i-1]**2))/math.sqrt(Cov_matrix[i,i]*Cov_matrix[i-1,i-1])
-#        inverse_all[i,i] = ((1-correlations[i-1]**2*correlations[i]**2)/((1-correlations[i-1]**2)*(1-correlations[i]**2)))/Cov_matrix[i,i]
-#        inverse_all[i,i+1] = (-correlations[i]/(1-correlations[i]**2))/math.sqrt(Cov_matrix[i,i]*Cov_matrix[i+1,i+1])
-#    
-#temp_mat = Cov_matrix_off @ inverse_all[0:p,0:p]
-#prop_mat = temp_mat
-#upper_matrix = np.concatenate((Cov_matrix, Cov_matrix_off), axis = 1)
-#lower_matrix = np.concatenate((Cov_matrix_off, Cov_matrix), axis = 1)
-#whole_matrix = np.concatenate((upper_matrix, lower_matrix), axis = 0)
-#cond_means_coeff = []
-#cond_vars = [0]*p
-#temp_means_coeff = np.reshape(whole_matrix[p,0:p],[1,p]) @ inverse_all[0:p,0:p]
-#cond_means_coeff.append(temp_means_coeff)
-#cond_vars[0] = (Cov_matrix[0,0] - cond_means_coeff[0] @ np.reshape(whole_matrix[p,0:p],[p,1]))[0,0]
-#for il in range(1,p):
-#  temp_var = Cov_matrix[il-1]
-#  temp_id = np.zeros([p+il-1,p+il-1])
-#  temp_row = np.zeros([p+il-1,p+il-1])
-#  temp_id[il-1,il-1] = 1
-#  temp_row[il-1,:] = matrix_diag[il-1] * inverse_all[il-1,0:(p+il-1)]
-#  temp_col = np.matrix.copy(np.transpose(temp_row))
-#  temp_fourth = matrix_diag[il-1]**2 * np.reshape(inverse_all[il-1,0:(p+il-1)],[p+il-1,1]) @ np.reshape(inverse_all[il-1,0:(p+il-1)],[1,p+il-1])
-#  temp_numerator = temp_id - temp_row - temp_col + temp_fourth
-#  temp_denominator = -matrix_diag[il-1] * (2-matrix_diag[il-1]*inverse_all[il-1,il-1])
-#  temp_remaining = -matrix_diag[il-1]*inverse_all[il-1,0:(p+il-1)]
-#  temp_remaining[il-1] = 1 + temp_remaining[il-1]
-#  inverse_all[0:(p+il-1),0:(p+il-1)] = inverse_all[0:(p+il-1),0:(p+il-1)] - (1/temp_denominator)*temp_numerator
-#  inverse_all[p+il-1,p+il-1] = -1/temp_denominator
-#  inverse_all[p+il-1,0:(p+il-1)] = 1/temp_denominator * temp_remaining
-#  inverse_all[0:(p+il-1),p+il-1] = np.matrix.copy(inverse_all[p+il-1,0:(p+il-1)])
-#  temp_means_coeff = np.reshape(whole_matrix[p+il,0:(p+il)],[1,p+il]) @ inverse_all[0:(p+il),0:(p+il)]
-#  cond_means_coeff.append(temp_means_coeff)
-#  cond_vars[il] = (Cov_matrix[il,il] - cond_means_coeff[il] @ np.reshape(whole_matrix[p+il,0:(p+il)],[p+il,1]))[0,0]
-#
 
 def SCEP_MH_COV(x_obs, gamma, mu_vector, rhos, param_list):
   Cov_matrix, matrix_diag, cond_coeff, cond_means_coeff, cond_vars = param_list
@@ -440,6 +358,7 @@ def SCEP_MH_COV(x_obs, gamma, mu_vector, rhos, param_list):
   #tildexs.append(rej)
   return(tildexs)
 
+# sample
 # numsamples = 1000
 # p = 30
 # rhos = [0.6]*(p-1)
