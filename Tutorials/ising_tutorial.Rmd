@@ -39,8 +39,15 @@ library(reshape2)
 library(knockoff)
 library(bayess)
 library(latex2exp)
-library(foreach)
 source("../Ising/ising.r") #load the ising knockoff functions
+```
+
+```{r}
+#configure parallelism
+library(foreach)
+library(doMC)
+n_cores = 3
+registerDoMC(cores = n_cores)
 ```
 
 ```{r}
@@ -54,7 +61,7 @@ We create `r n` samples from a `r d`x`r d` Ising model using the `bayess` packag
 
 ```{r}
 #sample from the Ising model
-set.seed(20000)
+set.seed(200)
 start = Sys.time()
 X = t(replicate(n, as.vector(isingibbs(niter = 100, n = d, m = d, beta = 2*beta_0))))
 X = 2*X - 1 #convert to +- 1 instead of 0,1
@@ -72,13 +79,13 @@ start = Sys.time()
 set.seed(200)
 Xk = c() # store the sampled knockoffs
 #create knockoffs for each observation
-Xk = foreach(i=1:n, .combine='rbind') %do% {
+Xk = foreach(i=1:n, .combine='rbind') %dopar% {
   x = matrix(X[i, ], nrow = d, ncol = d)
   xk = ising_knockoff(x, d, d, beta_0) #sample one knockoff
   as.vector(xk)
 }
 end = Sys.time()
-print(paste0("Average time per knockoff (seconds): ", (end - start) / n))
+print(paste0("Average time per knockoff (seconds): ", (end - start) * n_cores / n))
 
 dim(Xk)
 ```
@@ -131,27 +138,27 @@ for(i in 1:d) {
                  stringsAsFactors = FALSE)
   }
 }
-colnames(cors) = c("type", "i", "j", "ko_orig_corr")
+colnames(cors) = c("type", "row", "col", "ko_orig_corr")
 cors$ko_orig_corr = as.numeric(cors$ko_orig_corr)
-cors$i = as.numeric(cors$i)
-cors$j = as.numeric(cors$j)
+cors$row = as.numeric(cors$row)
+cors$col = as.numeric(cors$col)
 cors = cors %>% 
-  mutate(order = d * (i - 1) + j)
+  mutate(order = d * (row - 1) + col)
 ```
 
 ```{r}
 #plot the knockoff quality at each coordinate
-quality_grid = ggplot(cors, aes(x = i, y = j, fill = ko_orig_corr)) +
+quality_grid = ggplot(cors, aes(x = col, y = row, fill = ko_orig_corr)) +
   geom_tile(color = "white") +
-  scale_fill_continuous(high = "#000000", low = "#56B1F7", limits = c(.1, .4)) + 
+  scale_fill_continuous(high = "#000000", low = "#56B1F7", limits = c(.1, .5)) + 
   scale_y_reverse() + 
   coord_equal() +
   labs(fill = "cor") +
   theme_bw() + 
   theme(text = element_text(size = 10)) +
-  xlab("j") + 
-  ylab("k") + 
-labs(title = TeX("$5 \\times 5$ grid, $\\beta_0 = 0.5$")) +
+  xlab("k") + 
+  ylab("j") + 
+labs(title = TeX("$5 \\times 5$ grid, $\\beta_0 = 0.25$")) +
   coord_fixed() + 
   theme(plot.title = element_text(size=10)) +
   theme(plot.title = element_text(hjust = 0.5)) +
@@ -190,13 +197,13 @@ Next, we sample the knockoffs using the divide-and-conquer technique.
 #sample each knockoff
 set.seed(100)
 start = Sys.time()
-Xk = foreach(i=1:n, .combine='rbind') %do% {
+Xk = foreach(i=1:n, .combine='rbind') %dopar% {
   x = matrix(X[i, ], nrow = d, ncol = d)
   xk = ising_knockoff_slice(x, d, d, beta_0, max_width = width)
   as.vector(xk)
 }
 end = Sys.time()
-print(paste0("Average time per knockoff (seconds): ", round((end - start) / n, digits = 3)))
+print(paste0("Average time per knockoff (seconds): ", round((end - start) * n_cores / n, digits = 3)))
 
 dim(Xk)
 ```
@@ -225,26 +232,26 @@ for(i in 1:d) {
                  stringsAsFactors = FALSE)
   }
 }
-colnames(cors) = c("type", "i", "j", "ko_orig_corr")
+colnames(cors) = c("type", "row", "col", "ko_orig_corr")
 cors$ko_orig_corr = as.numeric(cors$ko_orig_corr)
-cors$i = as.numeric(cors$i)
-cors$j = as.numeric(cors$j)
+cors$row = as.numeric(cors$row)
+cors$col = as.numeric(cors$col)
 cors = cors %>% 
   mutate(order = d * (i - 1) + j)
 ```
 
 ```{r}
 #plot the knockoff quality at each coordinate
-quality_grid = ggplot(cors, aes(x = i, y = j, fill = ko_orig_corr)) +
+quality_grid = ggplot(cors, aes(x = col, y = row, fill = ko_orig_corr)) +
   geom_tile(color = "white") +
-  scale_fill_continuous(high = "#000000", low = "#56B1F7", limits = c(0, .7)) + 
+  scale_fill_continuous(high = "#000000", low = "#56B1F7", limits = c(-.1, .8)) + 
   scale_y_reverse() + 
   coord_equal() +
   labs(fill = "cor") +
   theme_bw() + 
   theme(text = element_text(size = 10)) +
-  xlab("j") + 
-  ylab("k") + 
+  xlab("k") + 
+  ylab("j") + 
 labs(title = TeX("$20 \\times 20$ grid, $\\beta_0 = 0.25$")) +
   coord_fixed() + 
   theme(plot.title = element_text(size=10)) +
@@ -255,3 +262,4 @@ labs(title = TeX("$20 \\times 20$ grid, $\\beta_0 = 0.25$")) +
 quality_grid
 ```
 
+In this plot, we can see that some columns have higher correlation that others due to the slicing. We can adjust the slicing pattern to remove this effect if needed.

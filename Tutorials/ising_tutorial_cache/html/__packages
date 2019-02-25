@@ -18,5 +18,7 @@ combinat
 bayess
 latex2exp
 foreach
+iterators
+doMC
 ggcorrplot
 bindrcpp

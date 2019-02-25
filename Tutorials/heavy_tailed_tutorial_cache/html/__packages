@@ -1,7 +1,11 @@
 base
 knitr
 foreach
-knockoff
 iterators
+doMC
+latex2exp
+ggplot2
+knockoff
 doParallel
+ggcorrplot
 MASS

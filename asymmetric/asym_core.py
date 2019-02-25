@@ -200,35 +200,33 @@ def SCEP_MH_MC(x_obs, gamma, x_grid, rhos):
 
 #generates the AR covariance matrix from a vector of rhos
 def ar_cov_matrix(rhos):
-  p = np.shape(rhos)[0] + 1
-  cormatrix = np.ones([p,p])
-  for i in range(p-1):
-      for j in range(i+1,p):
-          for k in range(i,j):
-              cormatrix[i,j] = cormatrix[i,j]*rhos[k]
-          cormatrix[j,i] = cormatrix[i,j]
-  return cormatrix
+    p = np.shape(rhos)[0] + 1
+    cormatrix = np.ones([p,p])
+    for i in range(p-1):
+        for j in range(i+1,p):
+            for k in range(i,j):
+                cormatrix[i,j] = cormatrix[i,j]*rhos[k]
+            cormatrix[j,i] = cormatrix[i,j]
+
+    return cormatrix
 
 # solves the SDP
 def sdp_solver(cormatrix):
-  p = np.shape(cormatrix)[0]
-  c = -np.ones(p)
-  Gs  = []
-  Gs = np.zeros((p, p*p))
-  for i in range(p):
-    Gs[i, i*p + i] = 1.0
+    p = np.shape(cormatrix)[0]
+    c = -np.ones(p)
+    
+    G1 = np.zeros((p, p*p))
+    for i in range(p):
+        G1[i, i*p + i] = 1.0
 
-  c = matrix(c)
-  Gs = [matrix(Gs.T)]
-  hs = [matrix(2 * cormatrix)]
-  G0 = matrix(-(np.identity(p)))
-  h0 = matrix(np.zeros(p))
+    c = matrix(c)
+    Gs = [matrix(G1.T)] + [matrix(G1.T)]
+    hs = [matrix(2 * cormatrix)] + [matrix(np.identity(p))]
+    G0 = matrix(-(np.identity(p)))
+    h0 = matrix(np.zeros(p))
 
-  sol = solvers.sdp(c, Gl=G0, hl=h0, Gs=Gs, hs=hs)
-  return np.array(sol['x'])
-
-
-#### Wenshuo: feel free to revamp this code however you want.
+    sol = solvers.sdp(c, G0, h0, Gs, hs)
+    return np.array(sol['x'])
 
 
 # find the parameters of the proposal dist
@@ -236,6 +234,7 @@ def compute_proposals(rhos):
     p = np.shape(rhos)[0] + 1
     cormatrix = ar_cov_matrix(rhos)
     s_sdp = sdp_solver(cormatrix)
+    print(np.mean(1-s_sdp))
     matrix_diag = np.reshape(s_sdp,p)
     Cov_matrix = np.matrix.copy(cormatrix)
     Cov_matrix_off = np.matrix.copy(Cov_matrix)
@@ -284,6 +283,7 @@ def compute_proposals(rhos):
         temp_means_coeff = np.reshape(whole_matrix[p+il,0:(p+il)],[1,p+il]) @ inverse_all[0:(p+il),0:(p+il)]
         cond_means_coeff.append(temp_means_coeff)
         cond_vars[il] = (Cov_matrix[il,il] - cond_means_coeff[il] @ np.reshape(whole_matrix[p+il,0:(p+il)],[p+il,1]))[0,0]
+        cond_vars = np.clip(cond_vars, 0.000000001, 1)
     return([Cov_matrix, matrix_diag, prop_mat,cond_means_coeff,cond_vars])
   #TODO: put code here to find the parameters for the proposal dist at each step
 
@@ -370,7 +370,8 @@ def compute_proposals(rhos):
 #  cond_vars[il] = (Cov_matrix[il,il] - cond_means_coeff[il] @ np.reshape(whole_matrix[p+il,0:(p+il)],[p+il,1]))[0,0]
 #
 
-def SCEP_MH_COVSCEP_MH_MC(x_obs, gamma, mu_vector, Cov_matrix, matrix_diag, cond_coeff, cond_means_coeff, cond_vars):
+def SCEP_MH_COV(x_obs, gamma, mu_vector, rhos, param_list):
+  Cov_matrix, matrix_diag, cond_coeff, cond_means_coeff, cond_vars = param_list
   p = len(x_obs)
   Cov_matrix_off = np.matrix.copy(Cov_matrix)
   for i in range(p):
@@ -436,28 +437,28 @@ def SCEP_MH_COVSCEP_MH_MC(x_obs, gamma, mu_vector, Cov_matrix, matrix_diag, cond
       if j+3<=p:
           for ii in range(j+2,p):
               parallel_cond_density_log[ii] = cond_density_log
-  tildexs.append(rej)
+  #tildexs.append(rej)
   return(tildexs)
 
-numsamples = 1000
-p = 3
-rhos = [0.3]*(p-1)
-bigmatrix = np.zeros([numsamples,2*p])
-rejections = 0
-[Cov_matrix, matrix_diag, cond_coeff, cond_means_coeff, cond_vars] = compute_proposals(rhos)
-for i in range(numsamples):
-    if np.random.uniform()>=0.5:
-            bigmatrix[i,0] = (abs(np.random.normal())-asymean)/math.sqrt(variance)
-    else:
-        bigmatrix[i,0] = (log(np.random.uniform())-asymean)/math.sqrt(variance) # log(np.random.uniform()) is a negative exponential random variable
-    for j in range(1,p):
-        if np.random.uniform()>=0.5:
-            bigmatrix[i,j] = ((abs(np.random.normal())-asymean)/math.sqrt(variance))*math.sqrt(1-rhos[j-1]**2) + rhos[j-1]*bigmatrix[i,j-1]
-        else:
-            bigmatrix[i,j] =  ((log(np.random.uniform())-asymean)/math.sqrt(variance))*math.sqrt(1-rhos[j-1]**2) + rhos[j-1]*bigmatrix[i,j-1]
-    knockoff_scep = SCEP_MH_COVSCEP_MH_MC(bigmatrix[i,0:p],1,[0]*p,Cov_matrix,matrix_diag, cond_coeff, cond_means_coeff, cond_vars)
-    bigmatrix[i,p:(2*p)] = knockoff_scep[0:p]
-    rejections = rejections + knockoff_scep[p]
-# bigmatrix is an nx2p matrix, each row being an indpendent sample of (X, \tilde X).
-print("The rejection rate is "+str(rejections/(p*numsamples))+".")
+# numsamples = 1000
+# p = 30
+# rhos = [0.6]*(p-1)
+# bigmatrix = np.zeros([numsamples,2*p])
+# rejections = 0
+# param_list = compute_proposals(rhos)
+# for i in range(numsamples):
+#     if np.random.uniform()>=0.5:
+#             bigmatrix[i,0] = (abs(np.random.normal())-asymean)/math.sqrt(variance)
+#     else:
+#         bigmatrix[i,0] = (log(np.random.uniform())-asymean)/math.sqrt(variance) # log(np.random.uniform()) is a negative exponential random variable
+#     for j in range(1,p):
+#         if np.random.uniform()>=0.5:
+#             bigmatrix[i,j] = ((abs(np.random.normal())-asymean)/math.sqrt(variance))*math.sqrt(1-rhos[j-1]**2) + rhos[j-1]*bigmatrix[i,j-1]
+#         else:
+#             bigmatrix[i,j] =  ((log(np.random.uniform())-asymean)/math.sqrt(variance))*math.sqrt(1-rhos[j-1]**2) + rhos[j-1]*bigmatrix[i,j-1]
+#     knockoff_scep = SCEP_MH_COV(bigmatrix[i,0:p],1,[0]*p, rhos, param_list)
+#     bigmatrix[i,p:(2*p)] = knockoff_scep[0:p]
+#     rejections = rejections + knockoff_scep[p]
+# # bigmatrix is an nx2p matrix, each row being an indpendent sample of (X, \tilde X).
+# print("The rejection rate is "+str(rejections/(p*numsamples))+".")
 

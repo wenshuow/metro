@@ -1,5 +1,10 @@
 base
 knitr
 foreach
+iterators
+doMC
+latex2exp
+ggplot2
 knockoff
+ggcorrplot
 MASS

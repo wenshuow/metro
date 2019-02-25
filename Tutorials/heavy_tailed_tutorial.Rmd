@@ -32,8 +32,8 @@ We demonstrate the multiple-try metropolis technique (Section 3.3 of the paper) 
 # simulation parameters
 df.t = 5 # degree of freedom of t-distribution
 p = 50 # dimension of the random vector X
-numsamples = 100 # number of samples to generate knockoffs for
-rhos = rep(0.6,p-1) # the correlations
+n_samples = 300 # number of repititions
+rhos = rep(0.6, p - 1) # correlations in the generative distribution
 
 #algorithm parameters
 halfnumtry = 4 # m/half number of candidates
@@ -41,7 +41,18 @@ stepsize = 1.5 # step size in the unit of 1/\sqrt((\Sigma)^{-1}_{jj})
 ```
 
 ```{r}
+#configure parallelism
 library(foreach)
+library(doMC)
+n_cores = 3
+registerDoMC(cores = n_cores)
+```
+
+```{r}
+#additional packages
+library(latex2exp)
+library(ggplot2)
+
 source("../heavy-tailed-t/t_MTM_core.R") #load the knockoff functions
 ```
 
@@ -53,15 +64,15 @@ $$
 ```{r}
 #compute the proposal size at each step 
 #using an exact analytic calculation
-quantile.x = matrix(0,ncol=2*halfnumtry+1,nrow=p)
+quantile.x = matrix(0, ncol=2*halfnumtry + 1, nrow=p)
 sds = rep(0,p)
-sds[1] = sqrt(1-rhos[1]^2)
-for(i in 2:(p-1)){
-  sds[i] = sqrt((1-rhos[i-1]^2)*(1-rhos[i]^2)/(1-rhos[i-1]^2*rhos[i]^2))
+sds[1] = sqrt(1 - rhos[1]^2)
+for(i in 2:(p - 1)){
+  sds[i] = sqrt((1 - rhos[i - 1]^2)*(1 - rhos[i]^2)/(1 - rhos[i - 1]^2*rhos[i]^2))
 }
-sds[p] = sqrt(1-rhos[p-1]^2)
+sds[p] = sqrt(1 - rhos[p-1]^2)
 for(i in 1:p){
-  quantile.x[i,] = ((-halfnumtry):halfnumtry)*sds[i]*stepsize
+  quantile.x[i,] = ((-halfnumtry):halfnumtry) * sds[i] * stepsize
 }
 ```
 
@@ -72,57 +83,103 @@ set.seed(100)
 
 temp = matrix(0,ncol=2*p,nrow=1)
 start = Sys.time()
-result_mtm = foreach(i=1:numsamples,.combine='rbind') %do% {
+result_mtm = foreach(i=1:n_samples,.combine='rbind') %dopar% {
   #sample the MC
-  temp[1] = rt(1, df.t)*sqrt((df.t-2)/df.t)
+  temp[1] = rt(1, df.t)*sqrt((df.t - 2)/df.t)
   for(j in 2:p)
-    temp[j] = rt(1, df.t)*sqrt((df.t-2)/df.t)*sqrt(1-rhos[j-1]^2) + rhos[j-1]*temp[j-1]
+    temp[j] = rt(1, df.t)*sqrt((df.t - 2)/df.t)*sqrt(1 - rhos[j - 1]^2) + rhos[j - 1]*temp[j - 1]
   
   #generate the knockoffs
-  temp[(p+1):(2*p)] = SCEP.MH.MC(temp[1:p],0.999,quantile.x)
+  temp[(p + 1):(2*p)] = SCEP.MH.MC(temp[1:p], 0.999, quantile.x)
   temp
 }
 end = Sys.time()
-print(paste0("Average time per observation + knockoff (seconds): ", round((end - start) / numsamples, digits = 3)))
+print(paste0("Average time per observation + knockoff (seconds): ", round((end - start) * n_cores / n_samples, digits = 3)))
+X = result_mtm[, 1:p]
+Xk = result_mtm[, (p + 1):(2*p)]
 
 dim(result_mtm)
 ```
+
+#### Knockoff quality
 
 We can compute the mean correlation between $X_j$ and $\tilde{X}_j$ to measure the knockoff quality:
 
 ```{r}
 cors = c()
 for(j in 1:p) {
-  cors = c(cors, cor(result_mtm[, j], result_mtm[, j+p]))
+  cors = c(cors, cor(X[, j], Xk[, j]))
 }
 mean(cors)
 ```
+
+We can also plot the correlation between $X_j$ and $\tilde{X}_j$ across different coordinates:
+
+```{r}
+#plot the correlation versus the variable index
+qplot(1:p, cors) + theme_bw() +
+  xlab("variable index") + 
+  ylab(TeX("cor($X_j$, $\\tilde{X}_j$)")) +
+  scale_y_continuous(limits = c(0, 1))
+```
+
+We see that the first and last knockoff have higher quality, since these variables only depend on one other variable.
+
+#### Diagnostics: checking means and covariances
+
+As a basic diagnostic, we check that each coordinate is mean zero and the the empirical covariance matrices of $X$ and $\tilde{X}$ are close. As the number of samples increases, the empircal covariance of $X$ and $\tilde{X}$ will converge to the same population covariance.
+
+```{r}
+max(abs(colMeans(X))) #find the coordinate with mean farthest away from 0
+max(abs(colMeans(Xk))) #find the coordinate with mean farthest away from 0
+
+S = cor(X) #correlation matrix of X
+Sk = cor(Xk) #correlation matrix of Xk
+max(abs(S - Sk)) #largest difference in the correlation matrix.
+```
+
+We can visualize the difference in the empirical covariance matrices of $X$ and $\tilde{X}$ with a heatmap.
+
+```{r}
+#visualize the difference in the empirical covariance
+library(ggcorrplot)
+ggcorrplot(cor(X) - cor(Xk), ggtheme = ggplot2::theme_bw, legend.title = "Corr diff", title = "Difference in correlation structure") + 
+  scale_y_reverse()
+```
+
+We see that the difference in the empirical correlation matrix of $X$ and the empirical correlation matrix of $\tilde{X}$ are small, as expected, since $X$ and $\tilde{X}$ come from the same distribution.
 
 ## Covariance-guided proposals
 
 We can also generate knockoffs with the covariance-guided proposals (Section 3.2 of the paper) with the `SCEP.MH.MC.COV` function. These proposals are motivated by a Gaussian approximation (indeed, they are optimal for Gaussian distributions), but they produce *exact* knockoffs because of the Metropolis--Hastings correction.
 
 ```{r}
+n_samples = 1000 # number of samples to generate knockoffs for
 set.seed(100)
 
+#generate the covariance guided knockoffs
 temp = matrix(0,ncol=2*p,nrow=1)
 start = Sys.time()
-result_cov = foreach(i=1:numsamples,.combine='rbind',.packages = 'MASS') %do% {
-  #sample the MC
-  temp[1] = rt(1, df.t)*sqrt((df.t-2)/df.t)
+result_cov = foreach(i=1:n_samples, .combine='rbind', .packages = 'MASS') %do% {
+  #sample one observation from the Markov Chain
+  temp[1] = rt(1, df.t)*sqrt((df.t - 2)/df.t)
   for(j in 2:p)
-    temp[j] = rt(1, df.t)*sqrt((df.t-2)/df.t)*sqrt(1-rhos[j-1]^2) + rhos[j-1]*temp[j-1]
+    temp[j] = rt(1, df.t)*sqrt((df.t - 2)/df.t)*sqrt(1 - rhos[j - 1]^2) + rhos[j - 1]*temp[j - 1]
 
   # generate the knockoffs
   xk = SCEP.MH.MC.COV(temp[1:p],1,rep(0,p), prop.mat, cond.means.coeff, cond.vars)
-  temp[(p+1):(2*p)] = xk[1:p]
+  temp[(p + 1):(2*p)] = xk[1:p]
   temp
 }
 end = Sys.time()
-print(paste0("Average time per observation + knockoff (seconds): ", round((end - start) / numsamples, digits = 3)))
+print(paste0("Average time per observation + knockoff (seconds): ", round((end - start) / n_samples, digits = 3)))
+X = result_cov[, 1:p]
+Xk = result_cov[, (p + 1):(2*p)]
 
 dim(result_cov)
 ```
+
+#### Knockoff quality
 
 We can again compute the mean correlation between $X_j$ and $\tilde{X}_j$ to check the knockoff quality:
 
@@ -133,3 +190,38 @@ for(j in 1:p) {
 }
 mean(cors)
 ```
+
+We can also plot the correlation between $X_j$ and $\tilde{X}_j$ across different coordinates:
+
+```{r}
+#plot the correlation versus the variable index
+qplot(1:p, cors) + theme_bw() +
+  xlab("variable index") + 
+  ylab(TeX("cor($X_j$, $\\tilde{X}_j$)")) +
+  scale_y_continuous(limits = c(0, 1))
+```
+
+#### Diagnostics: checking means and covariances
+
+As a basic diagnostic, we check that each coordinate is mean zero and the the empirical covariance matrices of $X$ and $\tilde{X}$ are close. As the number of samples increases, the empircal covariance of $X$ and $\tilde{X}$ will converge to the same population covariance.
+
+```{r}
+max(abs(colMeans(X))) #find the coordinate with mean farthest away from 0
+max(abs(colMeans(Xk))) #find the coordinate with mean farthest away from 0
+
+S = cor(X) #correlation matrix of X
+Sk = cor(Xk) #correlation matrix of Xk
+max(abs(S - Sk)) #largest difference in the correlation matrix.
+```
+
+We can visualize the difference in the empirical covariance matrices of $X$ and $\tilde{X}$ with a heatmap.
+
+```{r}
+#visualize the difference in the empirical covariance
+library(ggcorrplot)
+ggcorrplot(cor(X) - cor(Xk), ggtheme = ggplot2::theme_bw, legend.title = "Corr diff", title = "Difference in correlation structure") + 
+  scale_y_reverse()
+```
+
+
+We see that the difference in the empirical correlation matrix of $X$ and the empirical correlation matrix of $\tilde{X}$ are small, as expected, since $X$ and $\tilde{X}$ come from the same distribution. Note that we used more observations with the covariance guided proposals, so the correlation matrices match more closely that in the MTM case.

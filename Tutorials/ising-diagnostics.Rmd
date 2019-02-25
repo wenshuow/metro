@@ -29,6 +29,7 @@ library(latex2exp)
 n_samples = 10000
 k1 = 10 #dimension 1 of the grid
 k2 = 10 #dimension 2 of the grid
+p = k1 * k2 #total number of variables
 beta_0 = .25
 niter = 5000
 ```
@@ -197,20 +198,20 @@ Sk = cor(Xk)
 max(abs(S - Sk)) #the largest elementwise difference
 ```
 
-We find that the marginal covariance matrices are close. The fluctions of the entries of the covariance matrix should be about $\sqrt{2 \log(p * (p - 1)) / n} = $ `r 2*sqrt(p*(p-1) / n)`, so the deviation from 0 is not larger than we expect due to random fluctuations in the empirical covariance matrices.
+We find that the marginal covariance matrices are very close.
 
-#### Visualizing covariances
+#### Visualizing cross-covariances
 
 We plot the covariances between pairs $(X_{i,j}, X_{i^\prime, j^\prime}), (\tilde{X}_{i,j}, X_{i^\prime, j^\prime})$, and $(\tilde{X}_{i,j}, \tilde{X}_{i^\prime, j^\prime})$ for various values of $i,j,i^\prime,j^\prime$.  For valid knockoff copies, the sample correlation for all three pairs will be identical.
 
 ```{r}
 cor_plot = ggplot(cor_dat %>%
-                    transform(ham_distance = as.numeric(distance), correlation = as.numeric(cor)) %>%
-                    filter(ham_distance > 0) %>%
+                    transform(manhattan_dist = as.numeric(distance), correlation = as.numeric(cor)) %>%
+                    filter(manhattan_dist > 0) %>%
                     group_by(type), 
-                  aes(x = ham_distance, y = correlation, color = type, group = interaction(ham_distance, type))) + 
+                  aes(x = manhattan_dist, y = correlation, color = type, group = interaction(manhattan_dist, type))) + 
   geom_boxplot() + 
-  xlab("hamming distance") +
+  xlab(TeX("$l_1$ distance")) +
   theme_bw()
 
 cor_plot
