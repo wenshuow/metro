@@ -292,7 +292,7 @@ The knockoffs have mean correlation `r knockoff_mean_cor` and the elementwise kn
 quality_plot = ggplot(cors %>% filter(type == "knockoff"), aes(x = ko_orig_corr)) + 
   geom_histogram() +
   theme_bw() +
-  xlab( TeX("cor($X_{ij}$, $\tilde{X}_{ij})$)"))
+  xlab( TeX("cor($X_{ij}$, $\\tilde{X}_{ij})$)"))
 
 quality_plot
 ```
@@ -307,7 +307,7 @@ quality_grid = ggplot(cors, aes(x = i, y = j, fill = ko_orig_corr)) +
   scale_fill_gradient() + 
   scale_y_reverse() + 
   coord_fixed(ratio = 1) + 
-  labs(fill = TeX("cor($X_{ij}$, $\tilde{X}_{ij})$)")) +
+  labs(fill = TeX("cor($X_{ij}$, $\\tilde{X}_{ij})$)")) +
   theme_bw()
 
 quality_grid
@@ -348,7 +348,7 @@ quality_ordering = ggplot(order_dat %>% filter(type == "knockoff"),
   geom_point() +
   labs(color = "number of neighbors") +
   xlab("sampling order") +
-  ylab(TeX("cor($X_{ij}$, $\tilde{X}_{ij})$)")) +
+  ylab(TeX("cor($X_{ij}$, $\\tilde{X}_{ij})$)")) +
   geom_hline(data = grouped_order, aes(yintercept = as.numeric(mean_cor), color = as.factor(num_neighbors), linetype = as.factor(type))) +
   labs(linetype = "line type") +
   theme_bw() 
