@@ -8,4 +8,4 @@ A tutorial can be found [here](http://web.stanford.edu/~stephen6/knockoff_constr
 
 #### Reference
 
-Stephen Bates, Emmanuel Candès, Lucas Janson and Wenshuo Wang. (2019). *Generating Exact Knockoffs for Graphical Models via MCMC*.
+Stephen Bates, Emmanuel Candès, Lucas Janson and Wenshuo Wang. (2019). *Metropolized Knockoff Sampling*.
