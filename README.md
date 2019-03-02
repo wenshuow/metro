@@ -4,7 +4,7 @@
 
 This is a collection of scripts in R and Python that sample *exact* knockoffs for graphical models via the method of *Metropolized knockoff sampling* (Metro). They reproduce the results in Bates, Candès, Janson and Wang (2019). Scripts are grouped by the distribution of the original feature. Currently scripts for discrete Markov chains, continuous Markov chains (Gaussian, heavy-tailed, and asymmetric), and Ising/Gibbs models on grids are available.
 
-A tutorial can be found [here](http://web.stanford.edu/~stephen6/knockoff_construction/index.html). Correspondence should be addressed to Stephen Bates (stephen6@stanford.edu) and Wenshuo Wang (wenshuo_wang@g.harvard.edu).
+A tutorial can be found [here](http://web.stanford.edu/~stephen6/knockoff_construction/index.html). Correspondence should be addressed to [Stephen Bates](mailto:stephenbates@stanford.edu) and [Wenshuo Wang](mailto:wenshuo_wang@g.harvard.edu).
 
 #### Reference
 
