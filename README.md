@@ -8,4 +8,4 @@ A tutorial can be found [here](http://web.stanford.edu/~stephen6/knockoff_constr
 
 #### Reference
 
-Stephen Bates, Emmanuel Candès, Lucas Janson and Wenshuo Wang. (2019). *Metropolized Knockoff Sampling*.
+Stephen Bates, Emmanuel Candès, Lucas Janson and Wenshuo Wang. (2019). *Metropolized Knockoff Sampling*. [[pdf](https://statweb.stanford.edu/~candes/papers/metro.pdf)] [arXiv]
