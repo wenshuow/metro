@@ -8,4 +8,4 @@ A tutorial can be found [here](http://web.stanford.edu/group/candes/metro). Corr
 
 #### Reference
 
-Stephen Bates, Emmanuel Candès, Lucas Janson and Wenshuo Wang. (2019). *Metropolized Knockoff Sampling*. [[pdf](https://statweb.stanford.edu/~candes/papers/Metro.pdf)] [arXiv]
+Stephen Bates, Emmanuel Candès, Lucas Janson and Wenshuo Wang. (2019). *Metropolized Knockoff Sampling*. [[pdf](https://statweb.stanford.edu/~candes/papers/Metro.pdf)] [[arXiv](https://arxiv.org/abs/1903.00434)]
