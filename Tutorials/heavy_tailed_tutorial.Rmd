@@ -76,21 +76,21 @@ for(i in 1:p){
 }
 ```
 
-Then, we sample the Markov chain and the knockoffs with the `SCEP.MH.MC` function.
+Then, we sample the Markov chain and the knockoffs with the `metro_t_mtm` function.
 
 ```{r warning=FALSE}
 set.seed(100)
 
 temp = matrix(0,ncol=2*p,nrow=1)
 start = Sys.time()
-result_mtm = foreach(i=1:n_samples,.combine='rbind') %dopar% {
+result_mtm = foreach(i=1:n_samples,.combine='rbind') %do% {
   #sample the MC
   temp[1] = rt(1, df.t)*sqrt((df.t - 2)/df.t)
   for(j in 2:p)
     temp[j] = rt(1, df.t)*sqrt((df.t - 2)/df.t)*sqrt(1 - rhos[j - 1]^2) + rhos[j - 1]*temp[j - 1]
   
   #generate the knockoffs
-  temp[(p + 1):(2*p)] = SCEP.MH.MC(temp[1:p], 0.999, quantile.x)
+  temp[(p + 1):(2*p)] = metro_t_mtm(temp[1:p], 0.999, quantile.x)
   temp
 }
 end = Sys.time()
@@ -151,7 +151,7 @@ We see that the difference in the empirical correlation matrix of $X$ and the em
 
 ## Covariance-guided proposals
 
-We can also generate knockoffs with the covariance-guided proposals (Section 3.2 of the paper) with the `SCEP.MH.MC.COV` function. These proposals are motivated by a Gaussian approximation (indeed, they are optimal for Gaussian distributions), but they produce *exact* knockoffs because of the Metropolis--Hastings correction.
+We can also generate knockoffs with the covariance-guided proposals (Section 3.2 of the paper) with the `metro_t_cov` function. These proposals are motivated by a Gaussian approximation (indeed, they are optimal for Gaussian distributions), but they produce *exact* knockoffs because of the Metropolis--Hastings correction.
 
 ```{r}
 n_samples = 1000 # number of samples to generate knockoffs for
@@ -167,7 +167,7 @@ result_cov = foreach(i=1:n_samples, .combine='rbind', .packages = 'MASS') %do% {
     temp[j] = rt(1, df.t)*sqrt((df.t - 2)/df.t)*sqrt(1 - rhos[j - 1]^2) + rhos[j - 1]*temp[j - 1]
 
   # generate the knockoffs
-  xk = SCEP.MH.MC.COV(temp[1:p],1,rep(0,p), prop.mat, cond.means.coeff, cond.vars)
+  xk = metro_t_cov(temp[1:p],1,rep(0,p), prop.mat, cond.means.coeff, cond.vars)
   temp[(p + 1):(2*p)] = xk[1:p]
   temp
 }

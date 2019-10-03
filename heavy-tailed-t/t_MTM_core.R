@@ -24,7 +24,7 @@ p.marginal.log = function(x){
 p.joint.log = function(x, tildex, w)
   return(c(FALSE,p.marginal.log(x)))
 
-SCEP.MH.MC = function(x.obs, gamma, x.grid){
+metro_t_mtm = function(x.obs, gamma, x.grid){
   p = length(x.obs)
   midtry = floor(dim(x.grid)[2]/2)+1
   gridwithoutzero = x.grid[,-midtry]
@@ -214,7 +214,7 @@ SCEP.MH.MC = function(x.obs, gamma, x.grid){
 }
 
 
-SCEP.MH.MC.COV = function(x.obs, alpha, mu.vector, cond.coeff, cond.means.coeff, cond.vars){
+metro_t_cov = function(x.obs, alpha, mu.vector, cond.coeff, cond.means.coeff, cond.vars){
   p = length(mu.vector)
   rej = 0
   tildexs = c()
