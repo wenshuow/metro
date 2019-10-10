@@ -18,6 +18,29 @@ def gaussian_proposal(j, xj):
 
 	return xj + np.random.normal()
 
+def single_metro(lf, x, order, active_frontier, sym_proposal = gaussian_proposal, gamma = .99):
+	
+
+	#reindex to sample variables in ascending order
+	def lf2(x):
+		return lf(x[order])
+
+	inv_order = order.copy()
+	for j in order:
+		inv_order[order[j]] = j
+
+	active_frontier2 = []
+	for i in range(len(order)):
+	    active_frontier2 += [[inv_order[j] for j in active_frontier[i]]]
+
+	def sym_proposal2(j, xj):
+		return sym_proposal(order[j], xj)
+
+	# call the metro function that samples variables in ascending order
+	return ordered_metro(lf2, x[order], active_frontier2, sym_proposal2, gamma)
+
+
+
 def ordered_metro(lf, x, active_frontier, sym_proposal = gaussian_proposal, gamma = .99):
 	''' Samples a knockoff using the Metro algorithm, moving from variable 1
 		to variable n.
@@ -52,7 +75,9 @@ def ordered_metro(lf, x, active_frontier, sym_proposal = gaussian_proposal, gamm
 
 	#loop across variables
 	for j in range(len(x)):
+
 		# sample proposal
+		#print("variable: " + str(j))
 		x_prop[j] = sym_proposal(j, x[j])
 
 		# compute accept/reject probability and sample
