@@ -19,8 +19,25 @@ def gaussian_proposal(j, xj):
 	return xj + np.random.normal()
 
 def single_metro(lf, x, order, active_frontier, sym_proposal = gaussian_proposal, gamma = .99):
-	
+	''' Samples a knockoff using the Metro algorithm, using an 
+			arbitrary ordering of the variables.
 
+		Args:
+			lf (function that takes a 1-d numpy array) : the log probability 
+				density, only needs to be specified up to an additive constant
+			x (1-dim numpy array, length p) : the observed sample
+			order (1-dim numpy array, length p) : ordering to sample the variables.
+				Should be a vector with unique entries 0,...,p-1.
+			active_fontier (list of lists) : a list of length p where
+				entry j is the set of entries > j that are in V_j. This specifies
+				the conditional independence structure of the distribution given by
+				lf. See page 34 of the paper.
+			sym_proposal (function that takes two scalars) : symmetric proposal function
+
+		Returns:
+			xk: a vector of length d, the sampled knockoff
+
+	'''
 	#reindex to sample variables in ascending order
 	inv_order = order.copy()
 	for i, j in enumerate(order):
@@ -71,16 +88,11 @@ def ordered_metro(lf, x, active_frontier, sym_proposal = gaussian_proposal, gamm
 
 	x_prop = np.zeros(len(x)) #proposals
 	x_prop[:] = np.nan
-	acc = np.zeros(len(x)) # pattern of acceptances
+	acc = np.zeros(len(x)) #pattern of acceptances
 
 	#loop across variables
 	for j in range(len(x)):
-
-		# print(j)
-		# print(active_frontier[j])
-		# print(affected_vars[j])
-		# sample proposal
-		#print("variable: " + str(j))
+		# sample proposal)
 		x_prop[j] = sym_proposal(j, x[j])
 
 		# compute accept/reject probability and sample
@@ -94,7 +106,8 @@ def ordered_metro(lf, x, active_frontier, sym_proposal = gaussian_proposal, gamm
 
 
 def compute_acc_prob(lf, x, x_prop, acc, j, active_frontier, affected_vars, dp_dicts, gamma = .99):
-	''' Computes the acceptance probability at step j. 
+	''' Computes the acceptance probability at step j. Intended for use only as
+		a subroutine of the "ordered_metro" function.
 
 		This calculation is based on the observed sequence of proposals and 
 		accept/rejects of the steps before j, and the configuration of variables after j
@@ -116,8 +129,6 @@ def compute_acc_prob(lf, x, x_prop, acc, j, active_frontier, affected_vars, dp_d
 			gamma (float) : multiplier for the acceptance probability, between 0 and 1.
 
 	'''
-
-	# print("query " + str(j))
 
 	# return entry if previously computed
 	key = acc[active_frontier[j]].tostring()
@@ -156,9 +167,4 @@ def compute_acc_prob(lf, x, x_prop, acc, j, active_frontier, affected_vars, dp_d
 	dp_dicts[j][acc[active_frontier[j]].tostring()] = acc_prob #store result
 
 	return acc_prob
-
-
-
-
-
 
