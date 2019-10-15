@@ -22,12 +22,12 @@ def single_metro(lf, x, order, active_frontier, sym_proposal = gaussian_proposal
 	
 
 	#reindex to sample variables in ascending order
-	def lf2(x):
-		return lf(x[order])
-
 	inv_order = order.copy()
-	for j in order:
-		inv_order[order[j]] = j
+	for i, j in enumerate(order):
+		inv_order[j] = i
+
+	def lf2(x):
+		return lf(x[inv_order])
 
 	active_frontier2 = []
 	for i in range(len(order)):
@@ -37,7 +37,7 @@ def single_metro(lf, x, order, active_frontier, sym_proposal = gaussian_proposal
 		return sym_proposal(order[j], xj)
 
 	# call the metro function that samples variables in ascending order
-	return ordered_metro(lf2, x[order], active_frontier2, sym_proposal2, gamma)
+	return ordered_metro(lf2, x[order], active_frontier2, sym_proposal2, gamma)[inv_order]
 
 
 
@@ -76,6 +76,9 @@ def ordered_metro(lf, x, active_frontier, sym_proposal = gaussian_proposal, gamm
 	#loop across variables
 	for j in range(len(x)):
 
+		# print(j)
+		# print(active_frontier[j])
+		# print(affected_vars[j])
 		# sample proposal
 		#print("variable: " + str(j))
 		x_prop[j] = sym_proposal(j, x[j])
@@ -113,6 +116,8 @@ def compute_acc_prob(lf, x, x_prop, acc, j, active_frontier, affected_vars, dp_d
 			gamma (float) : multiplier for the acceptance probability, between 0 and 1.
 
 	'''
+
+	# print("query " + str(j))
 
 	# return entry if previously computed
 	key = acc[active_frontier[j]].tostring()
