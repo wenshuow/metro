@@ -2,7 +2,7 @@
 
 ''' Functions for computing treewidth decomposition.
 
-*This code is taken from the NetworkX package source code source code.*
+*This code is taken from the NetworkX package source code.*
 
 Treewidth of an undirected graph is a number associated with the graph.
 It can be defined as the size of the largest vertex set (bag) in a tree
