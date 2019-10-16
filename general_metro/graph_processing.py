@@ -13,14 +13,14 @@ def get_ordering(T):
         knockoff sampler.
 
         Args:
-            T: A networkx graph that is a juncion tree.
+            T: A networkx graph that is a junction tree.
                 Nodes must be sets with elements 0,...,p-1.
                 e.g.: width, T = treewidth_decomp(G)
 
         Returns:
             order : a numpy array with unique elements 0,...,p-1
             active_frontier (list of lists) : the set of variables active
-                at future steps. Intended as input for the "singl_metro" function.
+                at future steps. Intended as input for the "single_metro" function.
 
     '''
 
