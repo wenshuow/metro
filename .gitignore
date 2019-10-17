@@ -1,2 +1,4 @@
 *.Rhistory
 *.p
+*.pyc
+*.png
